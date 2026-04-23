@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: contentflow-postgres
+    environment:
+      POSTGRES_USER: contentflow
+      POSTGRES_PASSWORD: contentflow
+      POSTGRES_DB: contentflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - contentflow_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U contentflow -d contentflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  contentflow_pg:

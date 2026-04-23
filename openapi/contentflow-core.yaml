@@ -1,0 +1,382 @@
+openapi: 3.1.0
+info:
+  title: ContentFlow Core API
+  version: 0.1.0
+  description: |
+    Ядро SaaS для дистрибуции и лицензирования контента (СНГ).
+    Модули: CRM, каталог прав, контракты, финансы, задачи.
+servers:
+  - url: https://api.contentflow.example/v1
+    description: Production (пример)
+
+tags:
+  - name: deals
+  - name: catalog
+  - name: contracts
+  - name: finance
+  - name: tasks
+  - name: portal
+
+paths:
+  /deals:
+    get:
+      tags: [deals]
+      summary: Список сделок
+      parameters:
+        - name: stage
+          in: query
+          schema:
+            type: string
+            enum: [lead, negotiation, contract, paid]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Deal"
+    post:
+      tags: [deals]
+      summary: Создать сделку
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DealCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Deal"
+
+  /deals/{dealId}:
+    get:
+      tags: [deals]
+      summary: Сделка по ID
+      parameters:
+        - $ref: "#/components/parameters/DealId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Deal"
+
+  /catalog/items:
+    get:
+      tags: [catalog]
+      summary: Каталожные объекты
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CatalogItem"
+    post:
+      tags: [catalog]
+      summary: Создать объект каталога
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CatalogItemCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogItem"
+
+  /contracts:
+    get:
+      tags: [contracts]
+      summary: Список контрактов
+      responses:
+        "200":
+          description: OK
+    post:
+      tags: [contracts]
+      summary: Создать черновик контракта из сделки
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dealId, templateId]
+              properties:
+                dealId:
+                  type: string
+                  format: uuid
+                templateId:
+                  type: string
+                  format: uuid
+      responses:
+        "201":
+          description: Created
+
+  /contracts/{contractId}/versions:
+    get:
+      tags: [contracts]
+      summary: Версии PDF контракта
+      parameters:
+        - name: contractId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+
+  /finance/payouts:
+    get:
+      tags: [finance]
+      summary: Исходящие выплаты (с удержаниями)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Payout"
+
+  /tasks:
+    get:
+      tags: [tasks]
+      summary: Задачи и дедлайны
+      responses:
+        "200":
+          description: OK
+
+  /portal/rights-owner/summary:
+    get:
+      tags: [portal]
+      summary: Сводка для кабинета правообладателя
+      description: Контент, продажи, выплаты, статусы лицензий
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RightsOwnerPortalSummary"
+
+components:
+  parameters:
+    DealId:
+      name: dealId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    DealStage:
+      type: string
+      enum: [lead, negotiation, contract, paid]
+
+    AssetType:
+      type: string
+      enum:
+        - video
+        - series
+        - animated_series
+        - animated_film
+        - anime_series
+        - anime_film
+        - concert_show
+
+    Platform:
+      type: string
+      enum: [TV, OTT, YouTube]
+
+    Exclusivity:
+      type: string
+      enum: [exclusive, non_exclusive, sole]
+
+    LicenseTerms:
+      type: object
+      required: [territoryCode, exclusivity, platforms]
+      properties:
+        territoryCode:
+          type: string
+          description: ISO, CIS, WORLD и т.д.
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+        exclusivity:
+          $ref: "#/components/schemas/Exclusivity"
+        platforms:
+          type: array
+          items:
+            $ref: "#/components/schemas/Platform"
+        sublicensingAllowed:
+          type: boolean
+        languageRights:
+          type: array
+          items:
+            type: string
+          example: [original, dub_ru, sub_ru]
+
+    CatalogItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        assetType:
+          $ref: "#/components/schemas/AssetType"
+        rightsHolderOrgId:
+          type: string
+          format: uuid
+        licenseTerms:
+          type: array
+          items:
+            $ref: "#/components/schemas/LicenseTerms"
+
+    CatalogItemCreate:
+      type: object
+      required: [title, assetType, rightsHolderOrgId, licenseTerms]
+      properties:
+        title:
+          type: string
+        assetType:
+          $ref: "#/components/schemas/AssetType"
+        rightsHolderOrgId:
+          type: string
+          format: uuid
+        licenseTerms:
+          type: array
+          items:
+            $ref: "#/components/schemas/LicenseTerms"
+
+    Deal:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        stage:
+          $ref: "#/components/schemas/DealStage"
+        buyerOrgId:
+          type: string
+          format: uuid
+        currency:
+          type: string
+          example: KZT
+        catalogItemIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        commercialSnapshot:
+          type: object
+          additionalProperties: true
+
+    DealCreate:
+      type: object
+      required: [title, buyerOrgId, currency]
+      properties:
+        title:
+          type: string
+        buyerOrgId:
+          type: string
+          format: uuid
+        currency:
+          type: string
+        catalogItemIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    Payout:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        contractId:
+          type: string
+          format: uuid
+        rightsHolderOrgId:
+          type: string
+          format: uuid
+        amountGross:
+          type: string
+          description: Decimal as string
+        withholdingTaxAmount:
+          type: string
+        amountNet:
+          type: string
+        currency:
+          type: string
+
+    RightsOwnerPortalSummary:
+      type: object
+      properties:
+        contentCount:
+          type: integer
+        activeLicensesCount:
+          type: integer
+        pendingPayoutsTotal:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              catalogItemId:
+                type: string
+                format: uuid
+              title:
+                type: string
+              soldRegions:
+                type: array
+                items:
+                  type: string
+              lastDealAmount:
+                type: string
+              lastPayoutStatus:
+                type: string
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []

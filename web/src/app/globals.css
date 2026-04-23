@@ -1,0 +1,8 @@
+@import "../figma/styles/fonts.css";
+@import "tailwindcss" source(none);
+@source "../figma/**/*.{js,ts,jsx,tsx}";
+@source "../app/**/*.{js,ts,jsx,tsx}";
+@source "../components/**/*.{js,ts,jsx,tsx}";
+@import "tw-animate-css";
+@import "../figma/styles/theme.css";
+@import "react-day-picker/dist/style.css";
