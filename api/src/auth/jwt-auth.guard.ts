@@ -12,6 +12,7 @@ const isProduction = process.env.NODE_ENV === 'production';
 function isPublicRoute(path: string, method: string): boolean {
   if (method === 'POST' && path.endsWith('/auth/login')) return true;
   if (method === 'GET' && path.endsWith('/health')) return true;
+  if (method === 'GET' && path.endsWith('/health/db')) return true;
   // /debug/* публичен только вне прода; на проде требует JWT.
   if (!isProduction && method === 'GET' && path.includes('/debug/')) return true;
   return false;

@@ -1,4 +1,10 @@
-import { Controller, Get, HttpCode, HttpStatus, ServiceUnavailableException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -7,9 +13,23 @@ import { PrismaService } from '../prisma/prisma.service';
 export class HealthController {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Liveness-проба. Render дергает её часто (раз в несколько секунд),
+   * поэтому здесь НЕ ходим в БД — иначе кратковременный лаг Postgres
+   * превращается в перезапуск всего инстанса (и потенциальный OOM-цикл).
+   */
   @Get()
   @HttpCode(HttpStatus.OK)
-  async check() {
+  liveness() {
+    return { status: 'ok', service: 'contentflow-api' };
+  }
+
+  /**
+   * Readiness-проба. Её можно вызывать отдельно (реже), чтобы проверить БД.
+   */
+  @Get('db')
+  @HttpCode(HttpStatus.OK)
+  async readiness() {
     try {
       await this.prisma.$queryRaw`SELECT 1`;
     } catch {
@@ -19,7 +39,6 @@ export class HealthController {
         db: 'unreachable',
       });
     }
-
     return { status: 'ok', service: 'contentflow-api', db: 'ok' };
   }
 }
