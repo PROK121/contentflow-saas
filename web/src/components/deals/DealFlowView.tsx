@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import {
   Accordion,
 } from "@/figma/components/ui/accordion";
@@ -235,7 +236,7 @@ function DealDocumentSlotRow({
           disabled={busy || !pending}
           onClick={() => void upload()}
         >
-          {busy ? "…" : "Загрузить"}
+          {busy ? <><Loader2 size={14} className="animate-spin mr-1.5" />Загрузка…</> : "Загрузить"}
         </Button>
       </div>
     </div>
@@ -717,7 +718,7 @@ export function DealFlowView({ dealId }: { dealId: string }) {
                               void downloadContractPdf(c.id, latestV)
                             }
                           >
-                            {busyDl ? "…" : "Скачать PDF"}
+                            {busyDl ? <><Loader2 size={14} className="animate-spin mr-1.5" />Скачивание…</> : "Скачать PDF"}
                           </Button>
                         </>
                       ) : (
@@ -854,7 +855,7 @@ export function DealFlowView({ dealId }: { dealId: string }) {
               disabled={attachBusy || !pendingFile}
               onClick={() => void uploadDealFile()}
             >
-              {attachBusy ? "Загрузка…" : "Загрузить файл"}
+              {attachBusy ? <><Loader2 size={14} className="animate-spin mr-1.5" />Загрузка…</> : "Загрузить файл"}
             </Button>
           </div>
         </div>

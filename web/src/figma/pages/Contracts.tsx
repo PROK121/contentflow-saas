@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import { motion } from "motion/react";
 import { formatMoneyAmount } from "@/lib/format-money";
 import { isAdminDeleteEmail } from "@/lib/admin-delete-email";
@@ -13,6 +14,7 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
+  Loader2,
   Plus,
   Search,
   LayoutGrid,
@@ -34,6 +36,16 @@ import { v1Fetch, v1DownloadFile } from "@/lib/v1-client";
 import { Button } from "@/figma/components/ui/button";
 import { Input } from "@/figma/components/ui/input";
 import { Label } from "@/figma/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/figma/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -127,11 +139,7 @@ const CONTRACT_PLATFORM_OTT: { key: string; label: string }[] = [
   { key: "tvplus", label: "ТВ+" },
 ];
 
-function fmtDate(iso: string | null | undefined) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString("ru-RU");
-}
+import { fmtDate } from "@/lib/format-date";
 
 export function Contracts() {
   const router = useRouter();
@@ -144,6 +152,7 @@ export function Contracts() {
   const [archiveBusyId, setArchiveBusyId] = useState<string | null>(null);
   const [authEmail, setAuthEmail] = useState<string | null>(null);
   const [deleteContractBusyId, setDeleteContractBusyId] = useState<string | null>(null);
+  const [confirmDeleteContractId, setConfirmDeleteContractId] = useState<string | null>(null);
   const canAdminDelete = isAdminDeleteEmail(authEmail);
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -212,8 +221,10 @@ export function Contracts() {
         method: "PATCH",
         body: JSON.stringify({ archived }),
       });
+      toast.success(archived ? "Контракт перенесён в архив" : "Контракт восстановлен из архива");
       await loadContracts();
     } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка");
       setLoadErr(e instanceof Error ? e.message : "Ошибка");
     } finally {
       setArchiveBusyId(null);
@@ -221,18 +232,13 @@ export function Contracts() {
   }
 
   async function deleteContractForever(id: string) {
-    if (
-      !window.confirm(
-        "Удалить контракт безвозвратно? Действие необратимо.",
-      )
-    ) {
-      return;
-    }
     setDeleteContractBusyId(id);
     try {
       await v1Fetch(`/contracts/${id}`, { method: "DELETE" });
+      toast.success("Контракт удалён");
       await loadContracts();
     } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка удаления");
       setLoadErr(e instanceof Error ? e.message : "Ошибка удаления");
     } finally {
       setDeleteContractBusyId(null);
@@ -307,9 +313,11 @@ export function Contracts() {
         body: JSON.stringify({ dealId: createDealId, templateId }),
       });
       setCreateOpen(false);
+      toast.success("Контракт создан");
       router.push(`/contracts/${created.id}`);
       router.refresh();
     } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось создать");
       setCreateErr(e instanceof Error ? e.message : "Не удалось создать");
     } finally {
       setCreateBusy(false);
@@ -377,6 +385,26 @@ export function Contracts() {
 
   return (
     <div className="space-y-6">
+      <AlertDialog open={!!confirmDeleteContractId} onOpenChange={(v) => { if (!v) setConfirmDeleteContractId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить контракт навсегда?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Это действие необратимо. Контракт и все его версии PDF будут удалены без возможности восстановления.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => { if (confirmDeleteContractId) void deleteContractForever(confirmDeleteContractId); setConfirmDeleteContractId(null); }}
+            >
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -616,9 +644,19 @@ export function Contracts() {
         !loadErr &&
         rows.length > 0 &&
         filteredContracts.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            Нет контрактов в выбранном статусе. Смените фильтр.
-          </p>
+          <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border bg-muted/20 py-10 text-center">
+            <Search className="size-8 text-muted-foreground/50" />
+            <p className="text-sm font-medium text-muted-foreground">
+              Нет контрактов в выбранном статусе
+            </p>
+            <button
+              type="button"
+              className="text-xs text-primary hover:underline"
+              onClick={() => setSelectedStatus(null)}
+            >
+              Сбросить фильтр статуса
+            </button>
+          </div>
         )}
 
       {viewMode === "grid" ? (
@@ -747,8 +785,10 @@ export function Contracts() {
                       disabled={dlBusyId === contract.id}
                       onClick={() => void downloadLatest(contract.id)}
                     >
-                      <Download size={14} strokeWidth={2.5} className="mr-1.5" />
-                      {dlBusyId === contract.id ? "…" : "Скачать PDF"}
+                      {dlBusyId === contract.id
+                        ? <Loader2 size={14} className="animate-spin mr-1.5" />
+                        : <Download size={14} strokeWidth={2.5} className="mr-1.5" />}
+                      {dlBusyId === contract.id ? "Скачивание…" : "Скачать PDF"}
                     </Button>
                     <Button
                       type="button"
@@ -779,7 +819,7 @@ export function Contracts() {
                         size="sm"
                         variant="destructive"
                         disabled={deleteContractBusyId === contract.id}
-                        onClick={() => void deleteContractForever(contract.id)}
+                        onClick={() => setConfirmDeleteContractId(contract.id)}
                       >
                         <Trash2 size={14} strokeWidth={2.5} className="mr-1.5" />
                         {deleteContractBusyId === contract.id ? "…" : "Удалить"}
@@ -913,11 +953,8 @@ export function Contracts() {
                               contractsTab === "active" || contractsTab === "signed",
                             )
                           }
-                          title={
-                            contractsTab === "active" || contractsTab === "signed"
-                              ? "В архив"
-                              : "Вернуть из архива"
-                          }
+                          aria-label={contractsTab === "active" || contractsTab === "signed" ? "В архив" : "Вернуть из архива"}
+                          title={contractsTab === "active" || contractsTab === "signed" ? "В архив" : "Вернуть из архива"}
                         >
                           {contractsTab === "active" || contractsTab === "signed" ? (
                             <Archive className="size-3.5" />
@@ -931,7 +968,8 @@ export function Contracts() {
                             variant="destructive"
                             size="sm"
                             disabled={deleteContractBusyId === contract.id}
-                            onClick={() => void deleteContractForever(contract.id)}
+                            onClick={() => setConfirmDeleteContractId(contract.id)}
+                            aria-label="Удалить контракт навсегда"
                             title="Удалить безвозвратно"
                           >
                             <Trash2 className="size-3.5" />

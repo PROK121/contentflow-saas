@@ -1050,9 +1050,13 @@ export function ContentCatalog() {
             )}
 
             {!loading && !loadErr && items.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                Каталог пуст. Добавьте единицу или проверьте API.
-              </p>
+              <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border bg-muted/20 py-14 text-center">
+                <Film className="size-10 text-muted-foreground/40" />
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Каталог пуст</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">Добавьте первую позицию — фильм, сериал или другой контент</p>
+                </div>
+              </div>
             )}
 
             {!loading &&
@@ -1153,9 +1157,13 @@ export function ContentCatalog() {
             )}
 
             {!loading && !loadErr && items.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                Каталог пуст. Добавьте единицу или проверьте API.
-              </p>
+              <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border bg-muted/20 py-14 text-center">
+                <Film className="size-10 text-muted-foreground/40" />
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Каталог пуст</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">Добавьте первую позицию — фильм, сериал или другой контент</p>
+                </div>
+              </div>
             )}
 
             {!loading &&

@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -86,11 +87,7 @@ const statusStyle: Record<string, string> = {
   cancelled: "bg-muted text-muted-foreground border border-border",
 };
 
-function fmtDate(iso: string | null) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString("ru-RU");
-}
+import { fmtDate } from "@/lib/format-date";
 
 export function Payments() {
   const searchParams = useSearchParams();
@@ -191,9 +188,11 @@ export function Payments() {
         method: "PATCH",
         body: JSON.stringify(body),
       });
+      toast.success("Платёж обновлён");
       await loadStats();
       if (mainTab !== "payouts") await loadPayments();
     } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка сохранения");
       setErr(e instanceof Error ? e.message : "Ошибка сохранения");
     }
   }
@@ -555,11 +554,12 @@ export function Payments() {
                 <tbody>
                   {payments.length === 0 ? (
                     <tr>
-                      <td
-                        colSpan={9}
-                        className="px-6 py-8 text-sm text-muted-foreground"
-                      >
-                        Нет платежей по выбранным условиям.
+                      <td colSpan={9} className="py-12">
+                        <div className="flex flex-col items-center gap-2 text-center">
+                          <Wallet className="size-8 text-muted-foreground/40" />
+                          <p className="text-sm font-medium text-muted-foreground">Нет платежей по выбранным условиям</p>
+                          <p className="text-xs text-muted-foreground/70">Измените фильтры или создайте платёж из карточки сделки</p>
+                        </div>
                       </td>
                     </tr>
                   ) : (
@@ -748,11 +748,12 @@ export function Payments() {
                 <tbody>
                   {payouts.length === 0 ? (
                     <tr>
-                      <td
-                        colSpan={4}
-                        className="px-6 py-8 text-sm text-muted-foreground"
-                      >
-                        Выплат пока нет.
+                      <td colSpan={4} className="py-12">
+                        <div className="flex flex-col items-center gap-2 text-center">
+                          <TrendingUp className="size-8 text-muted-foreground/40" />
+                          <p className="text-sm font-medium text-muted-foreground">Выплат пока нет</p>
+                          <p className="text-xs text-muted-foreground/70">Выплаты появятся после расчёта роялти по контрактам</p>
+                        </div>
                       </td>
                     </tr>
                   ) : (

@@ -22,11 +22,22 @@ import {
   ArchiveRestore,
   Trash2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { CreateDealWizard, type WizardSeed } from "./CreateDealWizard";
 import { v1Fetch } from "@/lib/v1-client";
 import { isAdminDeleteEmail } from "@/lib/admin-delete-email";
 import { formatMoneyAmount, parseMoneyNumber } from "@/lib/format-money";
 import { getPlatformOwnerUserId } from "@/lib/platform-user";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/figma/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -228,6 +239,7 @@ export function DealsBoard() {
   >({});
   const [authEmail, setAuthEmail] = useState<string | null>(null);
   const [deleteDealBusyId, setDeleteDealBusyId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const canAdminDelete = isAdminDeleteEmail(authEmail);
 
   useEffect(() => {
@@ -458,9 +470,11 @@ export function DealsBoard() {
       const created = await v1Fetch<{ id: string }>(`/deals/${id}/duplicate`, {
         method: "POST",
       });
+      toast.success("Сделка дублирована");
       await load();
       router.push(`/deals/${created.id}`);
     } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка дублирования");
       setLoadErr(e instanceof Error ? e.message : "Ошибка дублирования");
     }
   }
@@ -491,28 +505,23 @@ export function DealsBoard() {
         method: "PATCH",
         body: JSON.stringify({ archived }),
       });
+      toast.success(archived ? "Сделка перенесена в архив" : "Сделка восстановлена из архива");
       await load();
     } catch (e) {
       setDeals(snapshot);
-      setLoadErr(
-        e instanceof Error ? e.message : "Не удалось обновить архив",
-      );
+      toast.error(e instanceof Error ? e.message : "Не удалось обновить архив");
+      setLoadErr(e instanceof Error ? e.message : "Не удалось обновить архив");
     }
   }
 
   async function deleteDealForever(dealId: string) {
-    if (
-      !window.confirm(
-        "Удалить сделку безвозвратно? Действие необратимо.",
-      )
-    ) {
-      return;
-    }
     setDeleteDealBusyId(dealId);
     try {
       await v1Fetch(`/deals/${dealId}`, { method: "DELETE" });
+      toast.success("Сделка удалена");
       await load();
     } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось удалить");
       setLoadErr(e instanceof Error ? e.message : "Не удалось удалить");
     } finally {
       setDeleteDealBusyId(null);
@@ -547,6 +556,26 @@ export function DealsBoard() {
 
   return (
     <div className="space-y-6">
+      <AlertDialog open={!!confirmDeleteId} onOpenChange={(v) => { if (!v) setConfirmDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить сделку навсегда?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Это действие необратимо. Сделка, все связанные контракты и файлы будут удалены без возможности восстановления.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => { if (confirmDeleteId) void deleteDealForever(confirmDeleteId); setConfirmDeleteId(null); }}
+            >
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <CreateDealWizard
         open={wizardOpen}
         wizardSeed={wizardSeed}
@@ -830,7 +859,7 @@ export function DealsBoard() {
                               <DropdownMenuItem
                                 className="text-destructive focus:text-destructive"
                                 disabled={deleteDealBusyId === deal.id}
-                                onClick={() => void deleteDealForever(deal.id)}
+                                onClick={() => setConfirmDeleteId(deal.id)}
                               >
                                 <Trash2 size={14} className="mr-2" />
                                 {deleteDealBusyId === deal.id
@@ -955,6 +984,7 @@ export function DealsBoard() {
                           type="button"
                           draggable
                           title="Перетащить в другую колонку"
+                          aria-label="Перетащить сделку в другую колонку"
                           className="shrink-0 px-1.5 py-4 text-muted-foreground hover:bg-muted cursor-grab active:cursor-grabbing border-r border-border"
                           onDragStart={(e) => {
                             e.dataTransfer.setData("dealId", deal.id);

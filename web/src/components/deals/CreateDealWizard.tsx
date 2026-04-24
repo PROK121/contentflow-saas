@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Dialog,
@@ -109,6 +110,7 @@ export function CreateDealWizard(props: {
   const [titleSuffix, setTitleSuffix] = useState("");
   const [catalogIds, setCatalogIds] = useState<string[]>([]);
   const [expectedValue, setExpectedValue] = useState("");
+  const [currency, setCurrency] = useState("KZT");
   const [vatIncluded, setVatIncluded] = useState(true);
   const [ownerUserId, setOwnerUserId] = useState("");
 
@@ -139,6 +141,7 @@ export function CreateDealWizard(props: {
       setCatalogIds([]);
       setTitleSuffix("");
       setExpectedValue("");
+      setCurrency("KZT");
       setVatIncluded(true);
       setClientQuery("");
       setOwnerUserId("");
@@ -276,10 +279,10 @@ export function CreateDealWizard(props: {
       setBuyerOrgId(org.id);
       setInlineClientOpen(false);
       setNewClientName("");
+      toast.success("Контрагент создан");
     } catch (e) {
-      setErr(
-        e instanceof Error ? e.message : "Ошибка создания контрагента",
-      );
+      toast.error(e instanceof Error ? e.message : "Ошибка создания контрагента");
+      setErr(e instanceof Error ? e.message : "Ошибка создания контрагента");
     } finally {
       setLoading(false);
     }
@@ -310,7 +313,7 @@ export function CreateDealWizard(props: {
           kind: dealKind,
           buyerOrgId,
           ownerUserId,
-          currency: "KZT",
+          currency,
           catalogItemIds: catalogIds,
           commercialExpectedValue: normalizeMoneyInput(expectedValue) || undefined,
           vatIncluded,
@@ -319,8 +322,10 @@ export function CreateDealWizard(props: {
         }),
       });
       onOpenChange(false);
+      toast.success("Сделка создана");
       onCreated(deal.id);
     } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка создания сделки");
       setErr(e instanceof Error ? e.message : "Ошибка создания сделки");
     } finally {
       setLoading(false);
@@ -389,8 +394,28 @@ export function CreateDealWizard(props: {
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {step === 1 ? "Шаг 1: создание сделки" : "Шаг 2: выбор прав"}
+            {step === 1 ? "Новая сделка" : "Параметры прав"}
           </DialogTitle>
+          {/* Step progress indicator */}
+          <div className="flex items-center gap-2 pt-1">
+            {[1, 2].map((s) => (
+              <div key={s} className="flex items-center gap-2">
+                <div className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold transition-colors ${
+                  step === s
+                    ? "bg-primary text-primary-foreground"
+                    : step > s
+                    ? "bg-success text-white"
+                    : "bg-muted text-muted-foreground"
+                }`}>
+                  {s}
+                </div>
+                <span className={`text-xs font-medium ${step === s ? "text-foreground" : "text-muted-foreground"}`}>
+                  {s === 1 ? "Основное" : "Права"}
+                </span>
+                {s < 2 && <div className="h-px w-8 bg-border" />}
+              </div>
+            ))}
+          </div>
         </DialogHeader>
 
         {err && (
@@ -544,15 +569,27 @@ export function CreateDealWizard(props: {
 
             <div>
               <Label>Ожидаемая сумма</Label>
-              <Input
-                className="mt-1 font-mono"
-                value={expectedValue}
-                onChange={(e) => setExpectedValue(e.target.value)}
-                onBlur={() =>
-                  setExpectedValue((prev) => formatMoneyAmountOrEmpty(prev))
-                }
-                placeholder="1 500 000"
-              />
+              <div className="mt-1 flex gap-2">
+                <Input
+                  className="font-mono flex-1"
+                  value={expectedValue}
+                  onChange={(e) => setExpectedValue(e.target.value)}
+                  onBlur={() =>
+                    setExpectedValue((prev) => formatMoneyAmountOrEmpty(prev))
+                  }
+                  placeholder="1 500 000"
+                />
+                <select
+                  className="w-24 rounded-md border border-border/50 bg-input-background px-2 py-2 text-sm font-mono"
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                  aria-label="Валюта"
+                >
+                  {["KZT", "USD", "EUR", "RUB"].map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
               <label className="mt-2 inline-flex items-center gap-2 text-sm">
                 <Checkbox
                   checked={vatIncluded}
