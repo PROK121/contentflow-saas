@@ -15,9 +15,15 @@ RUN npm ci --no-audit --no-fund
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 
-# На проде API_URL, NEXT_PUBLIC_* и др. прокидываются как build-args,
-# если им нужно «запечься» в бандл во время билда. Сейчас API_URL читается
-# в runtime, поэтому build-args тут не нужны.
+# Next.js rewrites (см. next.config.ts) резолвят destination на этапе билда и
+# запекаются в routes-manifest.json. Поэтому API_URL обязан быть ДОСТУПЕН во
+# время `npm run build`, иначе в образ зашьётся fallback http://localhost:3000
+# и клиентские запросы через /v1/* упадут с ECONNREFUSED на проде.
+#
+# Render автоматически пробрасывает envVars сервиса как --build-arg, так что
+# достаточно объявить ARG и перегнать в ENV. Дефолт нужен для локальных билдов.
+ARG API_URL=http://localhost:3000
+ENV API_URL=$API_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
