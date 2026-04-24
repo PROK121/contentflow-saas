@@ -218,6 +218,11 @@ model Deal {
   contracts    Contract[]
   payments     Payment[]
   activities   DealActivity[]
+
+  @@index([ownerUserId])
+  @@index([buyerOrgId])
+  @@index([stage])
+  @@index([archived])
 }
 
 model DealCatalogItem {
@@ -241,6 +246,8 @@ model DealActivity {
   userId    String?
   user      User?            @relation(fields: [userId], references: [id])
   createdAt DateTime         @default(now())
+
+  @@index([dealId, createdAt])
 }
 
 model Contract {
@@ -308,6 +315,10 @@ model Payment {
   status     PaymentStatus    @default(pending)
   createdAt  DateTime         @default(now())
   updatedAt  DateTime         @updatedAt
+
+  @@index([dealId])
+  @@index([contractId])
+  @@index([status])
 }
 
 model RoyaltyLine {
@@ -376,6 +387,10 @@ model Task {
   updatedAt         DateTime     @updatedAt
 
   comments TaskComment[]
+
+  @@index([assigneeId])
+  @@index([status])
+  @@index([dueAt])
 }
 
 model TaskComment {

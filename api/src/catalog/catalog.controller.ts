@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   UploadedFile,
   UseInterceptors,
@@ -22,6 +23,7 @@ import * as path from 'path';
 import { CatalogService } from './catalog.service';
 import { CreateCatalogItemDto } from './dto/create-catalog-item.dto';
 import { UpdateCatalogItemDto } from './dto/update-catalog-item.dto';
+import { imageMimeFilter } from '../common/multer-mime-filter';
 
 function catalogPosterUploadOptions() {
   return {
@@ -44,6 +46,7 @@ function catalogPosterUploadOptions() {
       },
     }),
     limits: { fileSize: 12 * 1024 * 1024 },
+    fileFilter: imageMimeFilter,
   };
 }
 
@@ -52,8 +55,11 @@ export class CatalogController {
   constructor(private readonly catalogService: CatalogService) {}
 
   @Get()
-  list() {
-    return this.catalogService.findAll();
+  list(@Query('skip') skip?: string, @Query('take') take?: string) {
+    return this.catalogService.findAll({
+      skip: skip != null ? Number(skip) : undefined,
+      take: take != null ? Number(take) : undefined,
+    });
   }
 
   @Post()

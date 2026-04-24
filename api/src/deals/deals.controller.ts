@@ -35,6 +35,7 @@ import {
   isDealDocumentSlot,
   type DealDocumentSlot,
 } from './deal-document-slots';
+import { documentMimeFilter } from '../common/multer-mime-filter';
 
 function dealFileUploadOptions() {
   return {
@@ -53,6 +54,7 @@ function dealFileUploadOptions() {
       },
     }),
     limits: { fileSize: 35 * 1024 * 1024 },
+    fileFilter: documentMimeFilter,
   };
 }
 
@@ -74,6 +76,7 @@ function dealDocumentUploadOptions() {
       },
     }),
     limits: { fileSize: 35 * 1024 * 1024 },
+    fileFilter: documentMimeFilter,
   };
 }
 

@@ -6,7 +6,8 @@ import {
 } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { AssetType, CatalogItemStatus, Prisma } from '@prisma/client';
-import { createReadStream, existsSync, rmSync, unlinkSync } from 'fs';
+import { createReadStream, existsSync } from 'fs';
+import { rm, unlink } from 'fs/promises';
 import * as path from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCatalogItemDto } from './dto/create-catalog-item.dto';
@@ -53,10 +54,14 @@ export class CatalogService {
     return `${normalized}-${randomBytes(8).toString('hex')}`.slice(0, 200);
   }
 
-  findAll() {
+  findAll(opts?: { skip?: number; take?: number }) {
+    const take = Math.min(opts?.take ?? 200, 500);
+    const skip = opts?.skip ?? 0;
     return this.prisma.catalogItem.findMany({
       orderBy: { updatedAt: 'desc' },
       include: { rightsHolder: true, licenseTerms: true },
+      skip,
+      take,
     });
   }
 
@@ -230,11 +235,7 @@ export class CatalogService {
     if (row.posterFileName && row.posterFileName !== file.filename) {
       const oldPath = path.join(dir, row.posterFileName);
       if (existsSync(oldPath)) {
-        try {
-          unlinkSync(oldPath);
-        } catch {
-          /* ignore */
-        }
+        await unlink(oldPath).catch(() => {});
       }
     }
 
@@ -278,11 +279,7 @@ export class CatalogService {
     }
     await this.prisma.catalogItem.delete({ where: { id } });
     const dir = path.join(uploadRoot(), 'catalog', id);
-    try {
-      rmSync(dir, { recursive: true, force: true });
-    } catch {
-      /* ignore */
-    }
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
     return { ok: true, id };
   }
 }

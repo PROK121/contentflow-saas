@@ -4,15 +4,8 @@ import {
   NotFoundException,
   StreamableFile,
 } from '@nestjs/common';
-import {
-  copyFileSync,
-  createReadStream,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  unlinkSync,
-} from 'fs';
+import { createReadStream, existsSync } from 'fs';
+import { copyFile, mkdir, readFile, rm, unlink } from 'fs/promises';
 import * as path from 'path';
 import {
   DealActivityKind,
@@ -84,10 +77,10 @@ export class DealsService {
     const absDst = path.join(root, storageKey);
     const absSrc = file.path;
 
-    mkdirSync(path.dirname(absDst), { recursive: true });
-    copyFileSync(absSrc, absDst);
+    await mkdir(path.dirname(absDst), { recursive: true });
+    await copyFile(absSrc, absDst);
     const sha256 = createHash('sha256')
-      .update(readFileSync(absDst))
+      .update(await readFile(absDst))
       .digest('hex');
 
     await this.prisma.contractVersion.create({
@@ -376,33 +369,22 @@ export class DealsService {
 
     if (dto.rightsSelections?.length) {
       for (const rs of dto.rightsSelections) {
-        const link = await this.prisma.dealCatalogItem.findUnique({
+        await this.prisma.dealCatalogItem.upsert({
           where: {
             dealId_catalogItemId: {
               dealId: id,
               catalogItemId: rs.catalogItemId,
             },
           },
+          create: {
+            dealId: id,
+            catalogItemId: rs.catalogItemId,
+            rightsSelection: this.toRightsJson(rs),
+          },
+          update: {
+            rightsSelection: this.toRightsJson(rs),
+          },
         });
-        if (!link) {
-          await this.prisma.dealCatalogItem.create({
-            data: {
-              dealId: id,
-              catalogItemId: rs.catalogItemId,
-              rightsSelection: this.toRightsJson(rs),
-            },
-          });
-        } else {
-          await this.prisma.dealCatalogItem.update({
-            where: {
-              dealId_catalogItemId: {
-                dealId: id,
-                catalogItemId: rs.catalogItemId,
-              },
-            },
-            data: { rightsSelection: this.toRightsJson(rs) },
-          });
-        }
       }
       await this.addActivity(id, {
         kind: DealActivityKind.system,
@@ -485,7 +467,7 @@ export class DealsService {
       '.txt',
     ]);
     if (!allowed.has(extLower)) {
-      if (file.path && existsSync(file.path)) unlinkSync(file.path);
+      if (file.path && existsSync(file.path)) await unlink(file.path).catch(() => {});
       throw new BadRequestException(
         'Допустимые форматы: PDF, DOC/DOCX, изображения, TIFF, TXT',
       );
@@ -493,7 +475,7 @@ export class DealsService {
 
     const deal = await this.prisma.deal.findUnique({ where: { id: dealId } });
     if (!deal) {
-      if (file.path && existsSync(file.path)) unlinkSync(file.path);
+      if (file.path && existsSync(file.path)) await unlink(file.path).catch(() => {});
       throw new NotFoundException();
     }
 
@@ -505,7 +487,7 @@ export class DealsService {
     const old = prev[slot];
     if (old?.storedFileName && old.storedFileName !== storedFileName) {
       const absOld = path.join(docsDir, old.storedFileName);
-      if (existsSync(absOld)) unlinkSync(absOld);
+      await unlink(absOld).catch(() => {});
     }
 
     const nextDoc: Record<string, DealDocumentStored> = {
@@ -572,7 +554,7 @@ export class DealsService {
       'documents',
       meta.storedFileName,
     );
-    if (existsSync(abs)) unlinkSync(abs);
+    await unlink(abs).catch(() => {});
 
     const { [slot]: _removed, ...rest } = prev;
     await this.prisma.deal.update({
@@ -871,7 +853,7 @@ export class DealsService {
     try {
       const root =
         process.env.UPLOAD_DIR ?? path.join(process.cwd(), 'uploads');
-      rmSync(path.join(root, 'deals', dealId), {
+      await rm(path.join(root, 'deals', dealId), {
         recursive: true,
         force: true,
       });

@@ -11,7 +11,8 @@ import {
   TaskType,
 } from '@prisma/client';
 import { createHash } from 'crypto';
-import { createReadStream, createWriteStream, existsSync, mkdirSync } from 'fs';
+import { createReadStream, createWriteStream, existsSync } from 'fs';
+import { mkdir } from 'fs/promises';
 import * as path from 'path';
 import PDFDocument = require('pdfkit');
 import { PrismaService } from '../prisma/prisma.service';
@@ -122,9 +123,7 @@ export class ContractsService {
 
     const abs = path.join(contractsUploadRoot(), ver.storageKey);
     const dir = path.dirname(abs);
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
-    }
+    await mkdir(dir, { recursive: true });
     if (!existsSync(abs)) {
       await this.writeContractPlaceholderPdf(abs, contract.number, versionNum);
     }
