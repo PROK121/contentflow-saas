@@ -13,18 +13,19 @@ function normalizePath(req) {
     const raw = req.originalUrl ?? req.url;
     return raw.split('?')[0] ?? '';
 }
+const isProduction = process.env.NODE_ENV === 'production';
 function isPublicRoute(path, method) {
     if (method === 'POST' && path.endsWith('/auth/login'))
         return true;
     if (method === 'GET' && path.endsWith('/health'))
         return true;
-    if (method === 'GET' && path.includes('/debug/'))
+    if (!isProduction && method === 'GET' && path.includes('/debug/'))
         return true;
     return false;
 }
 let JwtAuthGuard = class JwtAuthGuard extends (0, passport_1.AuthGuard)('jwt') {
     canActivate(context) {
-        if (process.env.DISABLE_API_AUTH === '1')
+        if (!isProduction && process.env.DISABLE_API_AUTH === '1')
             return true;
         const req = context.switchToHttp().getRequest();
         const path = normalizePath(req);

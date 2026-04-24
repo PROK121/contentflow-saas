@@ -33,10 +33,14 @@ function jwtFromRequest(req) {
 }
 let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(passport_jwt_1.Strategy, 'jwt') {
     constructor(config, prisma) {
+        const secret = config.get('JWT_SECRET');
+        if (!secret || secret.length < 16) {
+            throw new Error('JWT_SECRET is not set or is shorter than 16 chars. Set a strong secret in the environment (see api/.env.example).');
+        }
         super({
             jwtFromRequest,
             ignoreExpiration: false,
-            secretOrKey: config.get('JWT_SECRET') ?? 'dev-change-me',
+            secretOrKey: secret,
         });
         this.prisma = prisma;
     }

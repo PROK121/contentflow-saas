@@ -1,0 +1,40 @@
+# Зависимости и сборка — ставятся/собираются внутри образа
+node_modules
+dist
+coverage
+
+# Секреты и локальные настройки
+.env
+.env.*
+!.env.example
+
+# Локальные загрузки (на проде — Render Disk)
+uploads/
+
+# VCS и редакторы
+.git
+.gitignore
+.gitattributes
+.idea
+.vscode
+.DS_Store
+
+# Тесты и линтеры — в рантайме не нужны
+test
+*.spec.ts
+*.e2e-spec.ts
+.eslintrc*
+.prettierrc
+eslint.config.*
+
+# Логи и tmp
+*.log
+tmp
+.tmp
+
+# Docker-мета
+Dockerfile
+.dockerignore
+
+# Документация
+README.md

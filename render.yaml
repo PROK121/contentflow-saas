@@ -1,0 +1,104 @@
+# Render Blueprint для ContentFlow SaaS.
+# Описывает три сущности: Postgres-базу, API-сервис (NestJS) и Web-сервис (Next.js).
+# Подключается через Render Dashboard → New → Blueprint → выбрать этот репозиторий.
+#
+# Документация: https://render.com/docs/blueprint-spec
+# Тарифы (актуальные): https://render.com/pricing — ниже выставлены разумные стартовые.
+
+# -----------------------------------------------------------------------------
+# Базы данных
+# -----------------------------------------------------------------------------
+databases:
+  - name: contentflow-db
+    databaseName: contentflow
+    user: contentflow
+    # basic-256mb — самый дешёвый платный Postgres (~$6/мес, 1 ГБ диска).
+    # При росте нагрузки поднять до basic-1gb / basic-4gb через Dashboard.
+    plan: basic-256mb
+    region: frankfurt
+    # Автоматические дневные бэкапы включены на платных планах.
+
+# -----------------------------------------------------------------------------
+# Сервисы
+# -----------------------------------------------------------------------------
+services:
+  # ===========================================================================
+  # API — NestJS + Prisma + LibreOffice (PDF-конвертация)
+  # ===========================================================================
+  - type: web
+    name: contentflow-api
+    runtime: docker
+    region: frankfurt
+    # starter: 512 МБ RAM, $7/мес. Если LibreOffice начнёт OOM'иться на
+    # больших docx → поднять до standard (2 ГБ RAM, $25/мес).
+    plan: starter
+    dockerfilePath: ./api/Dockerfile
+    dockerContext: ./api
+    healthCheckPath: /v1/health
+    # Persistent Disk для загруженных файлов (uploads/). Без него файлы
+    # теряются при каждом редеплое. Монтируется в /data, что соответствует
+    # UPLOAD_DIR из Dockerfile.
+    disk:
+      name: contentflow-uploads
+      mountPath: /data
+      # 1 ГБ — стартовый размер. Расширяется через Dashboard без пересоздания.
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: UPLOAD_DIR
+        value: /data
+      - key: LIBREOFFICE_PATH
+        value: /usr/bin/soffice
+      # Подключение к Postgres — значение подставляется автоматически.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: contentflow-db
+          property: connectionString
+      # JWT_SECRET — Render сгенерирует длинную случайную строку при
+      # первом деплое и будет хранить её в environment этого сервиса.
+      # Web-сервис ниже подтянет то же значение через fromService.
+      - key: JWT_SECRET
+        generateValue: true
+      # WEB_ORIGIN выставляется вручную после первого деплоя, когда станет
+      # известен URL web-сервиса (вида https://contentflow-web.onrender.com).
+      # Оставляем sync: false чтобы Render не удалил ручное значение при
+      # последующих ребилдах.
+      - key: WEB_ORIGIN
+        sync: false
+      # Email с правом удалять записи (опционально, см. api/src/auth/admin-delete.ts).
+      # Если не нужен — оставь пустым, код использует дефолт.
+      - key: ADMIN_DELETE_EMAIL
+        sync: false
+
+  # ===========================================================================
+  # WEB — Next.js панель управления
+  # ===========================================================================
+  - type: web
+    name: contentflow-web
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./web/Dockerfile
+    dockerContext: ./web
+    # Next.js сам обслуживает / — корневая страница проверяется middleware'ом
+    # и редиректит неавторизованных на /login. 200/302/307 — всё OK для health.
+    healthCheckPath: /login
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3020"
+      # API_URL — полный URL API-сервиса с https://. Выставляется вручную после
+      # первого деплоя. Пример: https://contentflow-api.onrender.com
+      - key: API_URL
+        sync: false
+      # JWT_SECRET — подтягивается из api-сервиса, чтобы верификация cookie
+      # на web и подпись на api использовали одно и то же значение.
+      - key: JWT_SECRET
+        fromService:
+          type: web
+          name: contentflow-api
+          envVarKey: JWT_SECRET

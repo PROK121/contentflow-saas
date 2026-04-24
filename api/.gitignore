@@ -4,5 +4,11 @@ node_modules
 
 /generated/prisma
 
+# Собранный бандл — собирается в контейнере/CI
+dist/
+
 # Загруженные вложения к сделкам (локально)
 uploads/
+
+# macOS
+.DS_Store

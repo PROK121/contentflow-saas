@@ -1,0 +1,37 @@
+# Зависимости и сборка
+node_modules
+.next
+out
+coverage
+
+# Секреты
+.env
+.env.*
+!.env.example
+
+# VCS и редакторы
+.git
+.gitignore
+.gitattributes
+.idea
+.vscode
+.DS_Store
+
+# Линтеры
+.eslintrc*
+eslint.config.*
+
+# Логи и tmp
+*.log
+tmp
+.tmp
+
+# Docker-мета
+Dockerfile
+.dockerignore
+
+# Документация
+README.md
+
+# TS incremental build info
+*.tsbuildinfo

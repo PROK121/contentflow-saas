@@ -3,9 +3,13 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 function jwtSecretKey() {
-  return new TextEncoder().encode(
-    process.env.JWT_SECRET ?? "dev-change-me",
-  );
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 16) {
+    throw new Error(
+      "JWT_SECRET is not set or is shorter than 16 chars. Set a strong secret in the environment (see web/.env.example).",
+    );
+  }
+  return new TextEncoder().encode(secret);
 }
 
 function redirectToLogin(request: NextRequest, pathname: string) {

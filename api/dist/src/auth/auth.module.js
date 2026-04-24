@@ -27,10 +27,16 @@ exports.AuthModule = AuthModule = __decorate([
             passport_1.PassportModule.register({ defaultStrategy: 'jwt' }),
             jwt_1.JwtModule.registerAsync({
                 imports: [config_1.ConfigModule],
-                useFactory: (config) => ({
-                    secret: config.get('JWT_SECRET') ?? 'dev-change-me',
-                    signOptions: { expiresIn: '7d' },
-                }),
+                useFactory: (config) => {
+                    const secret = config.get('JWT_SECRET');
+                    if (!secret || secret.length < 16) {
+                        throw new Error('JWT_SECRET is not set or is shorter than 16 chars. Set a strong secret in the environment (see api/.env.example).');
+                    }
+                    return {
+                        secret,
+                        signOptions: { expiresIn: '7d' },
+                    };
+                },
                 inject: [config_1.ConfigService],
             }),
         ],

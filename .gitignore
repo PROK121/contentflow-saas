@@ -1,0 +1,9 @@
+# macOS
+**/.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# Логи на корневом уровне монорепо
+*.log
