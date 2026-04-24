@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { CatalogModule } from './catalog/catalog.module';
@@ -19,6 +20,20 @@ import { UsersModule } from './users/users.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRoot([
+      {
+        // Лимит по умолчанию — 300 запросов в минуту (обычный трафик)
+        name: 'default',
+        ttl: 60_000,
+        limit: 300,
+      },
+      {
+        // Строгий лимит для login — 5 попыток в минуту с одного IP
+        name: 'login',
+        ttl: 60_000,
+        limit: 5,
+      },
+    ]),
     AuthModule,
     PrismaModule,
     OrganizationsModule,
@@ -33,6 +48,11 @@ import { UsersModule } from './users/users.module';
   ],
   controllers: [HealthController, DebugController],
   providers: [
+    {
+      // ThrottlerGuard идёт первым — ограничивает rate до проверки JWT
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
