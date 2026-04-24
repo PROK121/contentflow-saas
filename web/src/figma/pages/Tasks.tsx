@@ -278,7 +278,7 @@ export function Tasks() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<string | null>(null);
   const [overdueOnly, setOverdueOnly] = useState(false);
-  const [assigneeFilter, setAssigneeFilter] = useState<AssigneeFilter>("mine");
+  const [assigneeFilter, setAssigneeFilter] = useState<AssigneeFilter>("all");
 
   const [sortMode, setSortMode] = useState<"dueAt" | "priority">("dueAt");
   const [overdueFirst, setOverdueFirst] = useState(true);
@@ -397,21 +397,29 @@ export function Tasks() {
       const prefix = qs ? `${qs}&` : "";
 
       const ownerForPurchasePins =
-        !archiveView && effectiveUserId
-          ? assigneeFilter === "all" || assigneeFilter === "mine"
-            ? effectiveUserId
-            : assigneeFilter
+        !archiveView
+          ? assigneeFilter === "all"
+            ? null
+            : assigneeFilter === "mine"
+              ? effectiveUserId
+              : assigneeFilter
           : null;
+
+      const purchasePinsUrl = archiveView
+        ? null
+        : ownerForPurchasePins
+          ? `/deals?kind=purchase&archived=false&ownerUserId=${encodeURIComponent(ownerForPurchasePins)}&limit=100`
+          : `/deals?kind=purchase&archived=false&limit=100`;
 
       const [todoR, ipR, revR, doneR, purchaseDealsRes] = await Promise.all([
         v1Fetch<TaskListResponse>(`/tasks?${prefix}status=todo`),
         v1Fetch<TaskListResponse>(`/tasks?${prefix}status=in_progress`),
         v1Fetch<TaskListResponse>(`/tasks?${prefix}status=review`),
         v1Fetch<TaskListResponse>(`/tasks?${prefix}status=done&limit=${TASK_PAGE_SIZE}&skip=0`),
-        ownerForPurchasePins
-          ? v1Fetch<PurchaseDealTodoPin[]>(
-              `/deals?kind=purchase&archived=false&ownerUserId=${encodeURIComponent(ownerForPurchasePins)}&limit=100`,
-            ).catch(() => [] as PurchaseDealTodoPin[])
+        purchasePinsUrl
+          ? v1Fetch<PurchaseDealTodoPin[]>(purchasePinsUrl).catch(
+              () => [] as PurchaseDealTodoPin[],
+            )
           : Promise.resolve([] as PurchaseDealTodoPin[]),
       ]);
 

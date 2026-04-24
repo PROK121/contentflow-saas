@@ -40,7 +40,6 @@ import {
 import { Button } from "@/figma/components/ui/button";
 import { Input } from "@/figma/components/ui/input";
 import { Label } from "@/figma/components/ui/label";
-import { Checkbox } from "@/figma/components/ui/checkbox";
 import { Switch } from "@/figma/components/ui/switch";
 import { Skeleton } from "@/figma/components/ui/skeleton";
 import { cn } from "@/figma/components/ui/utils";
@@ -198,7 +197,6 @@ export function DealsBoard() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const platformUserId = getPlatformOwnerUserId();
 
   const [urlReady, setUrlReady] = useState(false);
   const [deals, setDeals] = useState<ApiDeal[]>([]);
@@ -289,7 +287,6 @@ export function DealsBoard() {
     if (filterCatalogId) sp.set("catalogItemId", filterCatalogId);
     if (amountMin.trim()) sp.set("amountMin", amountMin.trim());
     if (amountMax.trim()) sp.set("amountMax", amountMax.trim());
-    if (platformUserId && onlyMine) sp.set("mine", "1");
     if (autoRefreshTab) sp.set("autorefresh", "1");
     if (showArchived) sp.set("archived", "1");
     const next = sp.toString();
@@ -307,10 +304,8 @@ export function DealsBoard() {
     filterCatalogId,
     amountMin,
     amountMax,
-    onlyMine,
     autoRefreshTab,
     showArchived,
-    platformUserId,
     pathname,
     router,
   ]);
@@ -404,9 +399,6 @@ export function DealsBoard() {
 
   const filteredDeals = useMemo(() => {
     let list = deals;
-    if (platformUserId && onlyMine) {
-      list = list.filter((d) => d.ownerUserId === platformUserId);
-    }
     const minN = amountMin.trim() ? parseMoneyNumber(amountMin) : null;
     const maxN = amountMax.trim() ? parseMoneyNumber(amountMax) : null;
     if (minN !== null) {
@@ -422,7 +414,7 @@ export function DealsBoard() {
       });
     }
     return list;
-  }, [deals, onlyMine, amountMin, amountMax, platformUserId]);
+  }, [deals, amountMin, amountMax]);
 
   function formatDeal(d: ApiDeal) {
     const net = parseNetNumberForCard(d);
@@ -732,15 +724,6 @@ export function DealsBoard() {
               placeholder="∞"
             />
           </div>
-          {platformUserId ? (
-            <label className="flex items-center gap-2 text-sm pb-2">
-              <Checkbox
-                checked={onlyMine}
-                onCheckedChange={(v) => setOnlyMine(v === true)}
-              />
-              Только мои
-            </label>
-          ) : null}
           <Button type="button" variant="ghost" size="sm" onClick={resetFilters}>
             Сбросить
           </Button>
