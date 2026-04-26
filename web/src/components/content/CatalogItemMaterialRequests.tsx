@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Eye,
   Loader2,
   Plus,
   Trash2,
@@ -12,6 +13,10 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { v1Fetch, v1DownloadFile } from "@/lib/v1-client";
+import {
+  isPreviewable,
+  MediaPreviewModal,
+} from "@/components/materials/MediaPreviewModal";
 import {
   formatBytes,
   MaterialRequest,
@@ -294,6 +299,11 @@ function UploadRow({
   const [busy, setBusy] = useState(false);
   const [comment, setComment] = useState(upload.reviewerComment ?? "");
   const [showComment, setShowComment] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const canPreview = isPreviewable(
+    upload.mimeType ?? "",
+    upload.originalName,
+  );
 
   async function review(status: "approved" | "rejected") {
     setBusy(true);
@@ -345,6 +355,16 @@ function UploadRow({
           ) : null}
         </div>
         <div className="flex items-center gap-1">
+          {canPreview ? (
+            <button
+              type="button"
+              onClick={() => setPreviewOpen(true)}
+              className="inline-flex items-center gap-1 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              title="Просмотр"
+            >
+              <Eye className="size-4" />
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() =>
@@ -362,6 +382,18 @@ function UploadRow({
           </button>
         </div>
       </div>
+
+      {previewOpen ? (
+        <MediaPreviewModal
+          base={{ kind: "crm", requestId, uploadId: upload.id }}
+          file={{
+            originalName: upload.originalName,
+            mimeType: upload.mimeType ?? "application/octet-stream",
+            size: Number(upload.size) || 0,
+          }}
+          onClose={() => setPreviewOpen(false)}
+        />
+      ) : null}
 
       {showComment ? (
         <textarea

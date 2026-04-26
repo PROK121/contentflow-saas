@@ -9,12 +9,17 @@ import {
   CheckCircle2,
   Clock,
   Download,
+  Eye,
   Loader2,
   QrCode,
   Trash2,
   Upload,
 } from "lucide-react";
 import { v1Fetch, v1DownloadFile } from "@/lib/v1-client";
+import {
+  isPreviewable,
+  MediaPreviewModal,
+} from "@/components/materials/MediaPreviewModal";
 import {
   formatBytes,
   MaterialRequest,
@@ -213,8 +218,12 @@ function SlotCard({
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [drag, setDrag] = useState(false);
+  const [previewUploadId, setPreviewUploadId] = useState<string | null>(null);
 
   const hasApproved = uploads.some((u) => u.reviewStatus === "approved");
+  const previewUpload = previewUploadId
+    ? uploads.find((u) => u.id === previewUploadId) ?? null
+    : null;
 
   async function uploadFile(file: File) {
     if (busy) return;
@@ -313,6 +322,17 @@ function SlotCard({
                 ) : null}
               </div>
               <div className="flex items-center gap-1">
+                {isPreviewable(u.mimeType ?? "", u.originalName) ? (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewUploadId(u.id)}
+                    className="inline-flex items-center gap-1 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    aria-label="Просмотр"
+                    title="Просмотр"
+                  >
+                    <Eye className="size-4" />
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={() =>
@@ -399,6 +419,23 @@ function SlotCard({
             />
           </label>
         </div>
+      ) : null}
+
+      {previewUpload ? (
+        <MediaPreviewModal
+          base={{
+            kind: "holder",
+            requestId,
+            uploadId: previewUpload.id,
+          }}
+          file={{
+            originalName: previewUpload.originalName,
+            mimeType:
+              previewUpload.mimeType ?? "application/octet-stream",
+            size: Number(previewUpload.size) || 0,
+          }}
+          onClose={() => setPreviewUploadId(null)}
+        />
       ) : null}
     </div>
   );
