@@ -35,9 +35,19 @@ function isPublicHolderPath(pathname: string): boolean {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // CRITICAL: API-прокси через rewrite (`/v1/*` → NestJS) и Next.js route
+  // handlers (`/api/*`) НЕ должны проходить через auth-middleware. Иначе
+  // у правообладателя (role=rights_owner) запросы на `/v1/holder/...` будут
+  // редиректиться на `/holder` (т.к. путь начинается с `/v1`, а не с
+  // `/holder/`), и браузер получит HTML-страницу вместо JSON. Это и есть
+  // причина ошибки `Unexpected token '<'`. Auth внутри API делает Nest сам
+  // (HolderGuard / JwtAuthGuard), middleware фронта тут лишний.
+  if (pathname.startsWith("/v1/") || pathname.startsWith("/api/")) {
+    return NextResponse.next();
+  }
+
   if (
     pathname.startsWith("/login") ||
-    pathname.startsWith("/api/auth/") ||
     isPublicHolderPath(pathname)
   ) {
     return NextResponse.next();
@@ -89,5 +99,10 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    // Исключаем api-прокси (`/v1/*` → NestJS) и Next route handlers (`/api/*`)
+    // на уровне раннего matcher: middleware вообще не вызывается для них.
+    // Также исключаем системные пути Next.js и favicon.
+    "/((?!_next/static|_next/image|_next/data|api|v1|favicon.ico).*)",
+  ],
 };
