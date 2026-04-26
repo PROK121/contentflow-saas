@@ -37,7 +37,7 @@ const navItems = [
 ];
 
 function navClassName(active: boolean) {
-  return `flex min-h-[1.75rem] shrink-0 items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium leading-none transition-all duration-200 sm:min-h-8 sm:gap-1 sm:px-2 sm:py-1 sm:text-[11px] ${
+  return `flex min-h-[1.75rem] items-center justify-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium leading-tight transition-all duration-200 sm:min-h-8 sm:gap-1 sm:px-2 sm:py-1 sm:text-[11px] xl:min-h-9 xl:px-1.5 xl:text-xs ${
     active
       ? "bg-white/20 text-white shadow-sm"
       : "text-white/80 hover:bg-white/10 hover:text-white"
@@ -117,10 +117,10 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
       <header className="border-b bg-primary text-primary-foreground shadow-md relative z-10">
         <div className="px-3 py-2 sm:px-5 sm:py-2.5 md:px-6">
           {/* Строка 1: логотип и служебные кнопки; навигация — отдельной полосой на всю ширину, без горизонтального скролла */}
-          <div className="mb-1.5 flex w-full min-w-0 items-center justify-between gap-2 sm:mb-2">
+          <div className="flex w-full min-w-0 items-center justify-between gap-2">
             <Link
               href="/"
-              className="flex min-w-0 max-w-[min(200px,42vw)] shrink items-center justify-start rounded-lg border border-white/30 bg-white/95 px-2 py-0.5 shadow-sm transition-colors hover:bg-white sm:max-w-[240px] sm:px-2.5 sm:py-1"
+              className="flex min-w-0 max-w-[min(180px,38vw)] shrink items-center justify-start rounded-lg border border-white/30 bg-white/95 px-2 py-0.5 shadow-sm transition-colors hover:bg-white sm:max-w-[220px] sm:px-2.5 sm:py-1"
             >
               <Image
                 src="/brand/growix-logo.png"
@@ -149,7 +149,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                 <Settings className="h-4 w-4 sm:h-[18px] sm:w-[18px]" strokeWidth={2} />
               </button>
               <div
-                className="ml-0.5 flex min-w-0 max-w-[5.5rem] items-center gap-1 rounded border border-white/20 bg-white/10 py-0.5 pl-1 pr-0.5 sm:max-w-[9rem] sm:gap-1.5 sm:py-1 sm:pl-1.5 sm:pr-1 md:max-w-[12rem]"
+                className="ml-0.5 flex min-w-0 max-w-[5.5rem] items-center gap-1 rounded border border-white/20 bg-white/10 py-0.5 pl-1 pr-0.5 sm:max-w-[9rem] sm:gap-1.5 sm:py-1 sm:pl-1.5 sm:pr-1 lg:max-w-[10.5rem] xl:max-w-[14rem]"
                 title={
                   me === undefined || !me
                     ? undefined
@@ -161,7 +161,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                     ? "…"
                     : userInitials(me?.displayName ?? null, me?.email ?? "?")}
                 </div>
-                <p className="min-w-0 truncate text-[10px] font-semibold leading-tight text-white sm:text-xs">
+                <p className="hidden min-w-0 truncate text-[10px] font-semibold leading-tight text-white sm:block sm:text-xs">
                   {me === undefined
                     ? "…"
                     : (me?.displayName ?? me?.email ?? "—")}
@@ -178,10 +178,11 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <nav
-            className="w-full min-w-0"
+            className="mt-2 w-full min-w-0 border-t border-white/20 pt-2"
             aria-label="Разделы"
           >
-            <div className="flex w-full min-w-0 flex-wrap items-center justify-center gap-x-0.5 gap-y-1 sm:gap-x-1 sm:gap-y-1.5">
+            {/* Узкие экраны: перенос строк; lg+: одна полоса на всю ширину, доли поровну — без «кома» по центру */}
+            <div className="flex w-full min-w-0 flex-wrap items-stretch justify-center gap-x-1 gap-y-1.5 sm:justify-evenly md:gap-x-1.5 xl:flex-nowrap xl:justify-between xl:gap-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const active = isNavActive(pathname, item.path);
@@ -189,13 +190,14 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                   <Link
                     key={item.path}
                     href={item.path}
-                    className={navClassName(active)}
+                    title={item.label}
+                    className={`${navClassName(active)} w-[calc(50%-0.25rem)] max-w-[11.5rem] sm:w-auto sm:max-w-[10.5rem] md:max-w-none xl:min-w-0 xl:max-w-none xl:flex-1 xl:basis-0`}
                   >
                     <Icon
-                      className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5"
+                      className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5 xl:h-4 xl:w-4"
                       strokeWidth={2}
                     />
-                    <span>{item.label}</span>
+                    <span className="min-w-0 text-center xl:truncate">{item.label}</span>
                   </Link>
                 );
               })}
