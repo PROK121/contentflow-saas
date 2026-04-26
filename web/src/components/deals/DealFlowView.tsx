@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { FolderOpen, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import {
   Accordion,
 } from "@/figma/components/ui/accordion";
@@ -55,7 +56,7 @@ type DealDetail = {
   stage: string;
   archived?: boolean;
   currency: string;
-  commercialSnapshot: Record<string, unknown> | null;
+  commercialSnapshot: (Record<string, unknown> & { driveFolders?: Record<string, string> }) | null;
   dealDocuments?: Record<string, DealDocumentSlotMeta> | null;
   buyer: { legalName: string; country: string; isResident: boolean };
   owner: { email: string };
@@ -282,6 +283,11 @@ export function DealFlowView({ dealId }: { dealId: string }) {
   const [metaBusy, setMetaBusy] = useState(false);
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const [contractDlBusy, setContractDlBusy] = useState<string | null>(null);
+  // Google Drive folder generation state: keyed by catalogItemId
+  const [driveEmails, setDriveEmails] = useState<Record<string, string>>({});
+  const [driveBusy, setDriveBusy] = useState<Record<string, boolean>>({});
+  // Keep a ref to the latest driveFolders so callbacks don't go stale
+  const driveFoldersRef = useRef<Record<string, string>>({});
   const isBuyerResidentByCountry =
     (deal?.buyer.country ?? "").trim().toUpperCase() === "KZ";
   const isPurchaseNonKzCounterparty =
@@ -310,6 +316,36 @@ export function DealFlowView({ dealId }: { dealId: string }) {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  // Keep ref in sync so generateDriveFolder always sees latest folders
+  useEffect(() => {
+    driveFoldersRef.current = deal?.commercialSnapshot?.driveFolders ?? {};
+  }, [deal]);
+
+  async function generateDriveFolder(catalogItemId: string) {
+    const email = driveEmails[catalogItemId]?.trim() ?? "";
+    if (!email) {
+      toast.error("Введите email для доступа к папке");
+      return;
+    }
+    setDriveBusy((prev) => ({ ...prev, [catalogItemId]: true }));
+    try {
+      const res = await v1Fetch<{ folderUrl: string }>(
+        `/deals/${dealId}/drive-folder`,
+        {
+          method: "POST",
+          body: JSON.stringify({ email, catalogItemId }),
+        },
+      );
+      toast.success("Папка на Google Drive создана");
+      await reload();
+      return res.folderUrl;
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка создания папки");
+    } finally {
+      setDriveBusy((prev) => ({ ...prev, [catalogItemId]: false }));
+    }
+  }
 
   useEffect(() => {
     if (!deal) return;
@@ -650,6 +686,94 @@ export function DealFlowView({ dealId }: { dealId: string }) {
             />
           ))}
         </Accordion>
+      </section>
+
+      <section className="rounded-xl border border-border bg-card p-4 space-y-4">
+        <div className="flex items-center gap-2">
+          <FolderOpen size={18} className="text-muted-foreground" />
+          <h2 className="font-semibold">Материалы на Google Drive</h2>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Введите email получателя и нажмите «Сгенерировать» — в Google Drive
+          будет создана папка{" "}
+          <span className="font-mono text-foreground/70">
+            Правообладатель / Контент
+          </span>{" "}
+          с доступом для указанного адреса.
+        </p>
+        {deal.catalogItems.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Нет позиций каталога в сделке.
+          </p>
+        ) : (
+          <ul className="space-y-3">
+            {deal.catalogItems.map((row) => {
+              const existingUrl =
+                deal.commercialSnapshot?.driveFolders?.[row.catalogItemId];
+              const isBusy = driveBusy[row.catalogItemId] ?? false;
+              return (
+                <li
+                  key={row.catalogItemId}
+                  className="rounded-lg border border-border/70 bg-muted/20 p-3 space-y-2"
+                >
+                  <p className="text-sm font-medium">{row.catalogItem.title}</p>
+                  {existingUrl ? (
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                      <a
+                        href={existingUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-primary font-semibold underline-offset-2 hover:underline"
+                      >
+                        <FolderOpen size={14} />
+                        Открыть папку на Drive
+                      </a>
+                      <span className="text-xs text-muted-foreground">
+                        Нажмите «Сгенерировать» ещё раз, чтобы выдать доступ
+                        другому адресу
+                      </span>
+                    </div>
+                  ) : null}
+                  <div className="flex flex-wrap items-end gap-2 max-w-lg">
+                    <div className="flex-1 min-w-[200px]">
+                      <Label className="text-xs">Email для доступа</Label>
+                      <Input
+                        type="email"
+                        className={`mt-1 ${NO_GREEN_FOCUS_CLASS}`}
+                        placeholder="manager@example.com"
+                        value={driveEmails[row.catalogItemId] ?? ""}
+                        onChange={(e) =>
+                          setDriveEmails((prev) => ({
+                            ...prev,
+                            [row.catalogItemId]: e.target.value,
+                          }))
+                        }
+                        disabled={isBusy}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={isBusy}
+                      onClick={() => void generateDriveFolder(row.catalogItemId)}
+                    >
+                      {isBusy ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin mr-1.5" />
+                          Создание…
+                        </>
+                      ) : existingUrl ? (
+                        "Обновить доступ"
+                      ) : (
+                        "Сгенерировать"
+                      )}
+                    </Button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </section>
 
       <section className="rounded-xl border border-border bg-card p-4 space-y-4">

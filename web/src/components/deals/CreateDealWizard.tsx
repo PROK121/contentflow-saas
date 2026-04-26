@@ -60,6 +60,8 @@ type RightsForm = {
   endAt: string;
   platforms: string[];
   exclusivity: Exclusivity;
+  languageRights: string[];
+  holdback: string;
 };
 
 const defaultRights = (): RightsForm => ({
@@ -68,7 +70,21 @@ const defaultRights = (): RightsForm => ({
   endAt: "",
   platforms: ["TV"],
   exclusivity: "non_exclusive",
+  languageRights: [],
+  holdback: "",
 });
+
+const PAYMENT_MODELS = [
+  "Фиксированный платёж",
+  "Минимальная гарантия (MG)",
+  "Ревенью-шер",
+  "Гибрид (фикс + доля)",
+  "За эпизод",
+  "Рассрочка",
+  "Бартер/промо",
+] as const;
+
+const LANGUAGE_OPTIONS = ["RU", "KZ", "EN", "TR", "AR", "ZH"] as const;
 
 type ValidateResult = {
   licenseGaps: string[];
@@ -105,6 +121,18 @@ export function CreateDealWizard(props: {
   const [inlineClientOpen, setInlineClientOpen] = useState(false);
   const [newClientName, setNewClientName] = useState("");
   const [newClientCountry, setNewClientCountry] = useState("KZ");
+  // Доп. поля нового клиента (площадки)
+  const [newClientPrimaryLanguages, setNewClientPrimaryLanguages] = useState("");
+  const [newClientPreferredGenres, setNewClientPreferredGenres] = useState("");
+  const [newClientExclusivityReadiness, setNewClientExclusivityReadiness] = useState("");
+  const [newClientPreferredTerm, setNewClientPreferredTerm] = useState("");
+  const [newClientAverageBudget, setNewClientAverageBudget] = useState("");
+  const [newClientPaymentDiscipline, setNewClientPaymentDiscipline] = useState("");
+  const [newClientTechRequirements, setNewClientTechRequirements] = useState("");
+  const [newClientContactName, setNewClientContactName] = useState("");
+  const [newClientContactEmail, setNewClientContactEmail] = useState("");
+  const [newClientContactPhone, setNewClientContactPhone] = useState("");
+  const [newClientNotes, setNewClientNotes] = useState("");
 
   /** Только пользовательская часть; префикс ПРОДАЖА/ПОКУПКА добавляется при сохранении. */
   const [titleSuffix, setTitleSuffix] = useState("");
@@ -126,6 +154,16 @@ export function CreateDealWizard(props: {
   const [newCatalogOpen, setNewCatalogOpen] = useState(false);
   const [newCatalogFormKey, setNewCatalogFormKey] = useState(0);
 
+  // Дополнительные поля (общие для продажи и закупа)
+  const [signedAt, setSignedAt] = useState("");
+  const [effectiveAt, setEffectiveAt] = useState("");
+  const [paymentModel, setPaymentModel] = useState("");
+  const [paymentTerms, setPaymentTerms] = useState("");
+  const [deliveryDeadline, setDeliveryDeadline] = useState("");
+  const [dealNotes, setDealNotes] = useState("");
+  // Только для продажи
+  const [minimumGuarantee, setMinimumGuarantee] = useState("");
+
   useEffect(() => {
     if (!open) return;
     setStep(1);
@@ -136,6 +174,19 @@ export function CreateDealWizard(props: {
     setAdminOverride(false);
     setDealKind("sale");
     setNewCatalogOpen(false);
+    setNewClientName("");
+    setNewClientCountry("KZ");
+    setNewClientPrimaryLanguages("");
+    setNewClientPreferredGenres("");
+    setNewClientExclusivityReadiness("");
+    setNewClientPreferredTerm("");
+    setNewClientAverageBudget("");
+    setNewClientPaymentDiscipline("");
+    setNewClientTechRequirements("");
+    setNewClientContactName("");
+    setNewClientContactEmail("");
+    setNewClientContactPhone("");
+    setNewClientNotes("");
     if (!wizardSeed) {
       setBuyerOrgId("");
       setCatalogIds([]);
@@ -145,6 +196,13 @@ export function CreateDealWizard(props: {
       setVatIncluded(true);
       setClientQuery("");
       setOwnerUserId("");
+      setSignedAt("");
+      setEffectiveAt("");
+      setPaymentModel("");
+      setPaymentTerms("");
+      setDeliveryDeadline("");
+      setDealNotes("");
+      setMinimumGuarantee("");
     } else {
       if (wizardSeed.buyerOrgId) setBuyerOrgId(wizardSeed.buyerOrgId);
       if (wizardSeed.catalogItemIds?.length) {
@@ -268,6 +326,17 @@ export function CreateDealWizard(props: {
           country: newClientCountry.trim().toUpperCase().slice(0, 2),
           type: orgType,
           isResident: true,
+          ...(newClientPrimaryLanguages.trim() && { primaryLanguages: newClientPrimaryLanguages.trim() }),
+          ...(newClientPreferredGenres.trim() && { preferredGenres: newClientPreferredGenres.trim() }),
+          ...(newClientExclusivityReadiness && { exclusivityReadiness: newClientExclusivityReadiness }),
+          ...(newClientPreferredTerm.trim() && { preferredTerm: newClientPreferredTerm.trim() }),
+          ...(newClientAverageBudget.trim() && { averageBudget: newClientAverageBudget.trim() }),
+          ...(newClientPaymentDiscipline && { paymentDiscipline: newClientPaymentDiscipline }),
+          ...(newClientTechRequirements.trim() && { techRequirements: newClientTechRequirements.trim() }),
+          ...(newClientContactName.trim() && { contactName: newClientContactName.trim() }),
+          ...(newClientContactEmail.trim() && { contactEmail: newClientContactEmail.trim() }),
+          ...(newClientContactPhone.trim() && { contactPhone: newClientContactPhone.trim() }),
+          ...(newClientNotes.trim() && { notes: newClientNotes.trim() }),
         }),
       });
       const appendSorted = (prev: Org[]) =>
@@ -301,6 +370,8 @@ export function CreateDealWizard(props: {
           endAt: f.endAt || undefined,
           platforms: f.platforms,
           exclusivity: f.exclusivity,
+          languageRights: f.languageRights.length ? f.languageRights : undefined,
+          holdback: f.holdback.trim() || undefined,
         };
       });
       const prefix = dealKind === "purchase" ? "ПОКУПКА" : "ПРОДАЖА";
@@ -319,6 +390,17 @@ export function CreateDealWizard(props: {
           vatIncluded,
           rightsSelections,
           adminOverride: adminOverride || undefined,
+          signedAt: signedAt || undefined,
+          paymentModel: paymentModel || undefined,
+          paymentTerms: paymentTerms.trim() || undefined,
+          notes: dealNotes.trim() || undefined,
+          ...(dealKind === "purchase" && {
+            effectiveAt: effectiveAt || undefined,
+            deliveryDeadline: deliveryDeadline || undefined,
+          }),
+          ...(dealKind === "sale" && {
+            minimumGuarantee: normalizeMoneyInput(minimumGuarantee) || undefined,
+          }),
         }),
       });
       onOpenChange(false);
@@ -489,50 +571,215 @@ export function CreateDealWizard(props: {
                   </button>
                 ))}
               </div>
-              {!inlineClientOpen ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="mt-2"
-                  onClick={() => setInlineClientOpen(true)}
-                >
-                  {dealKind === "sale"
-                    ? "+ Новый клиент"
-                    : "+ Новый правообладатель"}
-                </Button>
-              ) : (
-                <div className="mt-2 space-y-2 rounded-lg border border-border p-3">
-                  <Input
-                    placeholder="Юридическое название"
-                    value={newClientName}
-                    onChange={(e) => setNewClientName(e.target.value)}
-                  />
-                  <Input
-                    placeholder="Страна (ISO2)"
-                    value={newClientCountry}
-                    onChange={(e) => setNewClientCountry(e.target.value)}
-                    maxLength={2}
-                  />
-                  <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-2"
+                onClick={() => setInlineClientOpen(true)}
+              >
+                {dealKind === "sale"
+                  ? "+ Новый клиент"
+                  : "+ Новый правообладатель"}
+              </Button>
+
+              {/* Диалог создания нового клиента/правообладателя */}
+              <Dialog open={inlineClientOpen} onOpenChange={setInlineClientOpen}>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>
+                      {dealKind === "sale" ? "Новый клиент (площадка)" : "Новый правообладатель"}
+                    </DialogTitle>
+                  </DialogHeader>
+
+                  <div className="space-y-4 py-2">
+                    {/* Основные реквизиты */}
+                    <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-3">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        Основные реквизиты
+                      </p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="col-span-2">
+                          <Label className="text-xs">Название площадки / юридическое название *</Label>
+                          <Input
+                            className="mt-1"
+                            placeholder="ООО «КинопоискHD»"
+                            value={newClientName}
+                            onChange={(e) => setNewClientName(e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Страна (ISO2) *</Label>
+                          <Input
+                            className="mt-1"
+                            placeholder="KZ"
+                            value={newClientCountry}
+                            onChange={(e) => setNewClientCountry(e.target.value.toUpperCase())}
+                            maxLength={2}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {dealKind === "sale" && (
+                      <>
+                        {/* Контентные предпочтения */}
+                        <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-3">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                            Контентные предпочтения
+                          </p>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <Label className="text-xs">Основные языки</Label>
+                              <Input
+                                className="mt-1"
+                                placeholder="RU, KZ, EN"
+                                value={newClientPrimaryLanguages}
+                                onChange={(e) => setNewClientPrimaryLanguages(e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Предпочитаемые жанры</Label>
+                              <Input
+                                className="mt-1"
+                                placeholder="Драма, Комедия, Документальное"
+                                value={newClientPreferredGenres}
+                                onChange={(e) => setNewClientPreferredGenres(e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Готовность к эксклюзиву</Label>
+                              <select
+                                className="mt-1 w-full rounded-md border border-border/50 bg-input-background px-3 py-2 text-sm"
+                                value={newClientExclusivityReadiness}
+                                onChange={(e) => setNewClientExclusivityReadiness(e.target.value)}
+                              >
+                                <option value="">— не указано —</option>
+                                <option value="Да">Да</option>
+                                <option value="Частично">Частично</option>
+                                <option value="Нет">Нет</option>
+                              </select>
+                            </div>
+                            <div>
+                              <Label className="text-xs">Предпочтительный срок</Label>
+                              <Input
+                                className="mt-1"
+                                placeholder="1–3 года"
+                                value={newClientPreferredTerm}
+                                onChange={(e) => setNewClientPreferredTerm(e.target.value)}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Коммерческие параметры */}
+                        <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-3">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                            Коммерческие параметры
+                          </p>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <Label className="text-xs">Средний бюджет</Label>
+                              <Input
+                                className="mt-1"
+                                placeholder="$10 000 – $50 000"
+                                value={newClientAverageBudget}
+                                onChange={(e) => setNewClientAverageBudget(e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Платежная дисциплина</Label>
+                              <select
+                                className="mt-1 w-full rounded-md border border-border/50 bg-input-background px-3 py-2 text-sm"
+                                value={newClientPaymentDiscipline}
+                                onChange={(e) => setNewClientPaymentDiscipline(e.target.value)}
+                              >
+                                <option value="">— не указано —</option>
+                                <option value="Высокая">Высокая</option>
+                                <option value="Средняя">Средняя</option>
+                                <option value="Низкая">Низкая</option>
+                              </select>
+                            </div>
+                            <div className="col-span-2">
+                              <Label className="text-xs">Тех. требования к материалам</Label>
+                              <Input
+                                className="mt-1"
+                                placeholder="ProRes 4K, субтитры SRT, постер 2000×3000"
+                                value={newClientTechRequirements}
+                                onChange={(e) => setNewClientTechRequirements(e.target.value)}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Контактное лицо */}
+                        <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-3">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                            Контактное лицо
+                          </p>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="col-span-2">
+                              <Label className="text-xs">Основной контакт (ФИО)</Label>
+                              <Input
+                                className="mt-1"
+                                placeholder="Иванов Иван Иванович"
+                                value={newClientContactName}
+                                onChange={(e) => setNewClientContactName(e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Эл. почта</Label>
+                              <Input
+                                className="mt-1"
+                                type="email"
+                                placeholder="manager@platform.kz"
+                                value={newClientContactEmail}
+                                onChange={(e) => setNewClientContactEmail(e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Телефон</Label>
+                              <Input
+                                className="mt-1"
+                                placeholder="+7 700 000 00 00"
+                                value={newClientContactPhone}
+                                onChange={(e) => setNewClientContactPhone(e.target.value)}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Примечания */}
+                        <div>
+                          <Label className="text-xs">Примечания</Label>
+                          <textarea
+                            className="mt-1 w-full rounded-md border border-border/50 bg-input-background px-3 py-2 text-sm resize-none min-h-[72px] focus:outline-none focus:ring-2 focus:ring-ring/25"
+                            placeholder="Любые важные условия или комментарии по площадке"
+                            value={newClientNotes}
+                            onChange={(e) => setNewClientNotes(e.target.value)}
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  <DialogFooter>
                     <Button
                       type="button"
-                      size="sm"
-                      onClick={() => void createInlineCounterparty()}
-                      disabled={loading || !newClientName.trim()}
-                    >
-                      Создать
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
                       variant="ghost"
                       onClick={() => setInlineClientOpen(false)}
                     >
                       Отмена
                     </Button>
-                  </div>
-                </div>
-              )}
+                    <Button
+                      type="button"
+                      onClick={() => void createInlineCounterparty()}
+                      disabled={loading || !newClientName.trim()}
+                    >
+                      Создать
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
 
             <div>
@@ -598,6 +845,135 @@ export function CreateDealWizard(props: {
                 {isPurchaseNonKzCounterparty ? "С КПН" : "Оплата с НДС"}
               </label>
             </div>
+
+            {dealKind === "purchase" && (
+              <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-4">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Параметры закупа
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Дата подписания</Label>
+                    <Input
+                      type="date"
+                      className="mt-1"
+                      value={signedAt}
+                      onChange={(e) => setSignedAt(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Дата вступления в силу</Label>
+                    <Input
+                      type="date"
+                      className="mt-1"
+                      value={effectiveAt}
+                      onChange={(e) => setEffectiveAt(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">Модель оплаты</Label>
+                  <select
+                    className="mt-1 w-full rounded-md border border-border/50 bg-input-background px-3 py-2 text-sm"
+                    value={paymentModel}
+                    onChange={(e) => setPaymentModel(e.target.value)}
+                  >
+                    <option value="">— не указано —</option>
+                    {PAYMENT_MODELS.map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label className="text-xs">Условия оплаты</Label>
+                  <Input
+                    className="mt-1"
+                    placeholder="Например: 30 дней с даты подписания"
+                    value={paymentTerms}
+                    onChange={(e) => setPaymentTerms(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Срок поставки материалов</Label>
+                  <Input
+                    type="date"
+                    className="mt-1"
+                    value={deliveryDeadline}
+                    onChange={(e) => setDeliveryDeadline(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Примечания</Label>
+                  <textarea
+                    className="mt-1 w-full rounded-md border border-border/50 bg-input-background px-3 py-2 text-sm resize-none min-h-[72px] focus:outline-none focus:ring-2 focus:ring-ring/25"
+                    placeholder="Любые важные условия или комментарии по сделке"
+                    value={dealNotes}
+                    onChange={(e) => setDealNotes(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+
+            {dealKind === "sale" && (
+              <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-4">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Параметры продажи
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Дата подписания</Label>
+                    <Input
+                      type="date"
+                      className="mt-1"
+                      value={signedAt}
+                      onChange={(e) => setSignedAt(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Минимальная гарантия (MG)</Label>
+                    <Input
+                      className="mt-1"
+                      placeholder="0.00"
+                      value={minimumGuarantee}
+                      onChange={(e) =>
+                        setMinimumGuarantee(normalizeMoneyInput(e.target.value))
+                      }
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">Модель оплаты</Label>
+                  <select
+                    className="mt-1 w-full rounded-md border border-border/50 bg-input-background px-3 py-2 text-sm"
+                    value={paymentModel}
+                    onChange={(e) => setPaymentModel(e.target.value)}
+                  >
+                    <option value="">— не указано —</option>
+                    {PAYMENT_MODELS.map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label className="text-xs">Условия оплаты</Label>
+                  <Input
+                    className="mt-1"
+                    placeholder="Например: 30 дней с даты выхода контента"
+                    value={paymentTerms}
+                    onChange={(e) => setPaymentTerms(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Примечания</Label>
+                  <textarea
+                    className="mt-1 w-full rounded-md border border-border/50 bg-input-background px-3 py-2 text-sm resize-none min-h-[72px] focus:outline-none focus:ring-2 focus:ring-ring/25"
+                    placeholder="Любые важные условия или комментарии по сделке"
+                    value={dealNotes}
+                    onChange={(e) => setDealNotes(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
 
             <div>
               <Label>Менеджер</Label>
@@ -760,6 +1136,45 @@ export function CreateDealWizard(props: {
                         </option>
                       ))}
                     </select>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Языковые права</Label>
+                    <div className="flex flex-wrap gap-3 mt-1">
+                      {LANGUAGE_OPTIONS.map((lang) => (
+                        <label key={lang} className="flex items-center gap-1 text-xs">
+                          <Checkbox
+                            checked={form.languageRights.includes(lang)}
+                            onCheckedChange={() =>
+                              setRightsByItem((p) => {
+                                const f = { ...(p[itemId] ?? defaultRights()) };
+                                const set = new Set(f.languageRights);
+                                if (set.has(lang)) set.delete(lang);
+                                else set.add(lang);
+                                f.languageRights = [...set];
+                                return { ...p, [itemId]: f };
+                              })
+                            }
+                          />
+                          {lang}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Окно / холдбэк</Label>
+                    <Input
+                      className="mt-1"
+                      placeholder="Например: 6 мес. после театрального релиза"
+                      value={form.holdback}
+                      onChange={(e) =>
+                        setRightsByItem((p) => ({
+                          ...p,
+                          [itemId]: { ...form, holdback: e.target.value },
+                        }))
+                      }
+                    />
                   </div>
 
                   {v && (

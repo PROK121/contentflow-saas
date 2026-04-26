@@ -16,6 +16,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { DriveService } from '../drive/drive.service';
 import { CreateDealDto } from './dto/create-deal.dto';
 import { DealActivityDto } from './dto/deal-activity.dto';
 import { UpdateDealDto } from './dto/update-deal.dto';
@@ -50,7 +51,10 @@ function normalizeUploadedFileName(name: string): string {
 
 @Injectable()
 export class DealsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly drive: DriveService,
+  ) {}
 
   private async syncUploadedPdfToLatestContractVersion(
     dealId: string,
@@ -258,6 +262,13 @@ export class DealsService {
       commercialExpectedValue,
       vatIncluded = true,
       adminOverride,
+      signedAt,
+      effectiveAt,
+      paymentModel,
+      paymentTerms,
+      deliveryDeadline,
+      notes,
+      minimumGuarantee,
       ...dealData
     } = data;
 
@@ -287,6 +298,13 @@ export class DealsService {
         ? { expectedValue: commercialExpectedValue }
         : {}),
       vatIncluded: vatIncluded !== false,
+      ...(signedAt ? { signedAt } : {}),
+      ...(effectiveAt ? { effectiveAt } : {}),
+      ...(paymentModel ? { paymentModel } : {}),
+      ...(paymentTerms ? { paymentTerms } : {}),
+      ...(deliveryDeadline ? { deliveryDeadline } : {}),
+      ...(notes ? { notes } : {}),
+      ...(minimumGuarantee ? { minimumGuarantee } : {}),
     };
 
     const deal = await this.prisma.deal.create({
@@ -327,6 +345,8 @@ export class DealsService {
     endAt?: string;
     platforms: string[];
     exclusivity: string;
+    languageRights?: string[];
+    holdback?: string;
   }): Prisma.InputJsonValue {
     return {
       territoryCodes: rs.territoryCodes.map((t) => t.toUpperCase()),
@@ -334,6 +354,8 @@ export class DealsService {
       endAt: rs.endAt ?? null,
       platforms: rs.platforms,
       exclusivity: rs.exclusivity,
+      languageRights: rs.languageRights ?? [],
+      holdback: rs.holdback ?? null,
     };
   }
 
@@ -862,5 +884,82 @@ export class DealsService {
     }
 
     return { ok: true, id: dealId };
+  }
+
+  /**
+   * Generates a Google Drive folder for a specific catalog item in the deal.
+   * Structure: <RightsHolderName> / <ContentTitle>
+   * Stores the resulting URL in commercialSnapshot.driveFolders[catalogItemId].
+   */
+  async generateDriveFolder(
+    dealId: string,
+    email: string,
+    catalogItemId: string,
+  ): Promise<{ folderUrl: string }> {
+    if (!this.drive) {
+      throw new BadRequestException(
+        'Интеграция с Google Drive не настроена на сервере',
+      );
+    }
+
+    const deal = await this.prisma.deal.findUnique({
+      where: { id: dealId },
+      include: {
+        catalogItems: {
+          where: { catalogItemId },
+          include: {
+            catalogItem: {
+              include: { rightsHolder: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!deal) throw new NotFoundException('Сделка не найдена');
+
+    const item = deal.catalogItems[0];
+    if (!item) {
+      throw new BadRequestException(
+        'Позиция каталога не найдена в этой сделке',
+      );
+    }
+
+    const rightsHolderName = item.catalogItem.rightsHolder.legalName;
+    const contentTitle = item.catalogItem.title;
+
+    const folderUrl = await this.drive.createDealFolder({
+      rightsHolderName,
+      contentTitle,
+      email,
+    });
+
+    // Persist the URL in commercialSnapshot.driveFolders[catalogItemId]
+    const existingSnapshot =
+      typeof deal.commercialSnapshot === 'object' &&
+      deal.commercialSnapshot !== null
+        ? (deal.commercialSnapshot as Record<string, unknown>)
+        : {};
+
+    const existingFolders =
+      typeof existingSnapshot.driveFolders === 'object' &&
+      existingSnapshot.driveFolders !== null
+        ? (existingSnapshot.driveFolders as Record<string, string>)
+        : {};
+
+    await this.prisma.deal.update({
+      where: { id: dealId },
+      data: {
+        commercialSnapshot: {
+          ...existingSnapshot,
+          driveFolders: {
+            ...existingFolders,
+            [catalogItemId]: folderUrl,
+          },
+        },
+      },
+    });
+
+    return { folderUrl };
   }
 }

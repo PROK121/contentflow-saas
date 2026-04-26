@@ -13,6 +13,7 @@ const safeUserSelect = {
   displayName: true,
   organizationId: true,
   locale: true,
+  acceptedTermsAt: true,
   createdAt: true,
   updatedAt: true,
 } as const;

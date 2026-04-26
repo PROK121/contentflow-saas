@@ -18,6 +18,7 @@ import {
   BookMarked,
   Bell,
   Settings,
+  Users,
 } from "lucide-react";
 import { BackgroundEffects } from "../BackgroundEffects";
 
@@ -32,6 +33,7 @@ const navItems = [
   { path: "/payments", label: "Платежи", icon: DollarSign },
   { path: "/tasks", label: "Задачи", icon: CheckSquare },
   { path: "/rights-base", label: "База прав", icon: BookMarked },
+  { path: "/counterparties", label: "Контрагенты", icon: Users },
 ];
 
 function navClassName(active: boolean) {

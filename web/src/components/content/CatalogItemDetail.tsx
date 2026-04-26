@@ -16,6 +16,7 @@ import { formatLicenseTermCell } from "@/lib/license-term-format";
 import { DEAL_TERRITORY_PRESETS } from "@/lib/deal-territory-presets";
 import { Button } from "@/figma/components/ui/button";
 import { Checkbox } from "@/figma/components/ui/checkbox";
+import { CatalogItemMaterialRequests } from "./CatalogItemMaterialRequests";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -861,6 +862,11 @@ export function CatalogItemDetail(props: { catalogItemId: string }) {
           </ul>
         )}
       </section>
+
+      <CatalogItemMaterialRequests
+        catalogItemId={item.id}
+        rightsHolderOrgId={item.rightsHolder?.id ?? null}
+      />
 
       <section className="rounded-xl border border-border bg-card p-5 space-y-3">
         <h2 className="text-lg font-semibold">Архив</h2>

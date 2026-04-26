@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -295,6 +296,100 @@ export class ContractsService {
     return updated;
   }
 
+  /// Click-sign правообладателем из кабинета /holder/contracts/:id.
+  ///
+  /// Бизнес-правила:
+  /// 1. Контракт должен принадлежать организации правообладателя
+  ///    (проверяется выше — в HolderController через scope.findContractOrFail).
+  /// 2. Текущий статус должен быть `sent` (менеджер выпустил договор и
+  ///    отправил его на подписание). Подписать `draft` нельзя — он не имеет
+  ///    стабильной редакции; подписать `signed`/`expired`/`terminated`
+  ///    повторно тоже нельзя.
+  /// 3. Должна существовать хотя бы одна `ContractVersion`
+  ///    (PDF, который, собственно, подписывают).
+  /// 4. Фиксируем «слепок» документа: версия + sha256.
+  ///    Если потом контент перегенерируют — поле `holderSignedHash`
+  ///    не совпадёт с `ContractVersion.sha256` и видно, что подпись больше
+  ///    не действительна (выводим в UI).
+  async signByHolder(input: {
+    contractId: string;
+    userId: string;
+    organizationId: string;
+    ip?: string;
+    userAgent?: string;
+    termsVersion: string;
+  }): Promise<{ contractId: string; version: number; sha256: string }> {
+    // Фильтр идентичен HolderScopeService.findContractOrFail —
+    // организация-правообладатель привязана к контракту через
+    // RoyaltyLine.rightsHolderOrgId (одна или несколько линий выплат).
+    const c = await this.prisma.contract.findFirst({
+      where: {
+        id: input.contractId,
+        royaltyLines: { some: { rightsHolderOrgId: input.organizationId } },
+      },
+    });
+    if (!c) throw new NotFoundException('Contract not found');
+
+    if (c.holderSignedAt) {
+      throw new ConflictException('Контракт уже подписан');
+    }
+
+    if (c.status !== ContractStatus.sent) {
+      throw new BadRequestException(
+        'Подписание доступно только когда менеджер отправил контракт',
+      );
+    }
+
+    const lastVersion = await this.prisma.contractVersion.findFirst({
+      where: { contractId: input.contractId },
+      orderBy: { version: 'desc' },
+      select: { id: true, version: true, sha256: true },
+    });
+    if (!lastVersion) {
+      throw new BadRequestException(
+        'У контракта нет версии PDF — обратитесь к менеджеру',
+      );
+    }
+
+    const now = new Date();
+
+    await this.prisma.$transaction([
+      this.prisma.contract.update({
+        where: { id: input.contractId },
+        data: {
+          status: ContractStatus.signed,
+          holderSignedByUserId: input.userId,
+          holderSignedAt: now,
+          holderSignedIp: input.ip,
+          holderSignedUserAgent: input.userAgent?.slice(0, 1024),
+          holderSignedVersion: lastVersion.version,
+          holderSignedHash: lastVersion.sha256,
+          holderSignedTermsVer: input.termsVersion,
+        },
+      }),
+      this.prisma.contractVersion.update({
+        where: { id: lastVersion.id },
+        data: { signedAt: now },
+      }),
+      // Любые открытые напоминания «контракт не подписан» закрываем —
+      // больше они не актуальны.
+      this.prisma.task.updateMany({
+        where: {
+          linkedEntityType: 'contract',
+          linkedEntityId: input.contractId,
+          status: { not: TaskStatus.done },
+        },
+        data: { status: TaskStatus.done },
+      }),
+    ]);
+
+    return {
+      contractId: input.contractId,
+      version: lastVersion.version,
+      sha256: lastVersion.sha256,
+    };
+  }
+
   async markExpiredDraft(contractId: string) {
     const c = await this.prisma.contract.findUnique({
       where: { id: contractId },
@@ -431,6 +526,17 @@ export class ContractsService {
       where: { contractId },
       orderBy: { version: 'desc' },
     });
+  }
+
+  /// Возвращает номер последней версии контракта или null, если версий ещё нет.
+  /// Используется кабинетом правообладателя для скачивания «текущего» документа.
+  async latestVersionNumber(contractId: string): Promise<number | null> {
+    const last = await this.prisma.contractVersion.findFirst({
+      where: { contractId },
+      orderBy: { version: 'desc' },
+      select: { version: true },
+    });
+    return last?.version ?? null;
   }
 
   /** Безвозвратное удаление: только архивный контракт; после проверки admin-email. */

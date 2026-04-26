@@ -32,6 +32,17 @@ export class RightsSelectionItemDto {
 
   @IsEnum(Exclusivity)
   exclusivity!: Exclusivity;
+
+  /** Языковые права: ["RU", "KZ", "EN", ...] */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  languageRights?: string[];
+
+  /** Окно/холдбэк: произвольное текстовое описание */
+  @IsOptional()
+  @IsString()
+  holdback?: string;
 }
 
 export class SoldHintsDto {

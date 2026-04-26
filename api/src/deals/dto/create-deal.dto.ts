@@ -53,4 +53,41 @@ export class CreateDealDto {
   @IsOptional()
   @IsBoolean()
   adminOverride?: boolean;
+
+  // --- Дополнительные поля для сделок закупа (хранятся в commercialSnapshot) ---
+
+  /** Дата подписания договора (ISO date string) */
+  @IsOptional()
+  @IsString()
+  signedAt?: string;
+
+  /** Дата вступления в силу (ISO date string) */
+  @IsOptional()
+  @IsString()
+  effectiveAt?: string;
+
+  /** Модель оплаты: фиксированный платёж, MG, ревенью-шер и т.д. */
+  @IsOptional()
+  @IsString()
+  paymentModel?: string;
+
+  /** Условия оплаты: срок, порядок выплат */
+  @IsOptional()
+  @IsString()
+  paymentTerms?: string;
+
+  /** Срок поставки материалов (ISO date string) */
+  @IsOptional()
+  @IsString()
+  deliveryDeadline?: string;
+
+  /** Примечания по сделке */
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  /** Минимальная гарантия (MG) — сумма для сделок продажи */
+  @IsOptional()
+  @IsString()
+  minimumGuarantee?: string;
 }

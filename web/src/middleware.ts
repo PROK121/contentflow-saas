@@ -12,19 +12,34 @@ function jwtSecretKey() {
   return new TextEncoder().encode(secret);
 }
 
-function redirectToLogin(request: NextRequest, pathname: string) {
+function redirectTo(request: NextRequest, target: string, fromPath?: string) {
   const url = request.nextUrl.clone();
-  url.pathname = "/login";
-  if (pathname !== "/" && !pathname.startsWith("/login")) {
-    url.searchParams.set("from", pathname);
+  url.pathname = target;
+  url.search = "";
+  if (fromPath && fromPath !== "/" && !fromPath.startsWith(target)) {
+    url.searchParams.set("from", fromPath);
   }
   return NextResponse.redirect(url);
+}
+
+/// Публичные страницы кабинета правообладателя — доступны без auth-cookie.
+/// Это форма принятия инвайта, форма запроса magic-link и страница верификации.
+function isPublicHolderPath(pathname: string): boolean {
+  return (
+    pathname === "/holder/accept" ||
+    pathname === "/holder/login" ||
+    pathname === "/holder/auth/verify"
+  );
 }
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname.startsWith("/login") || pathname.startsWith("/api/auth/")) {
+  if (
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/api/auth/") ||
+    isPublicHolderPath(pathname)
+  ) {
     return NextResponse.next();
   }
 
@@ -42,15 +57,35 @@ export async function middleware(request: NextRequest) {
 
   const token = request.cookies.get("cf_session")?.value;
   if (!token) {
-    return redirectToLogin(request, pathname);
+    // Если адрес начинался с /holder — отправляем на /holder/login,
+    // иначе на общий /login.
+    if (pathname.startsWith("/holder")) {
+      return redirectTo(request, "/holder/login", pathname);
+    }
+    return redirectTo(request, "/login", pathname);
   }
 
+  let role: string | null = null;
   try {
-    await jwtVerify(token, jwtSecretKey());
-    return NextResponse.next();
+    const verified = await jwtVerify(token, jwtSecretKey());
+    role = typeof verified.payload.role === "string" ? verified.payload.role : null;
   } catch {
-    return redirectToLogin(request, pathname);
+    if (pathname.startsWith("/holder")) {
+      return redirectTo(request, "/holder/login", pathname);
+    }
+    return redirectTo(request, "/login", pathname);
   }
+
+  // Жёсткое разделение: правообладатель видит только /holder/*; остальные — нигде там.
+  // Это и UX, и безопасность (нельзя случайно попасть в админ-раздел через закладку).
+  if (role === "rights_owner" && !pathname.startsWith("/holder")) {
+    return redirectTo(request, "/holder");
+  }
+  if (role !== "rights_owner" && pathname.startsWith("/holder")) {
+    return redirectTo(request, "/");
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {

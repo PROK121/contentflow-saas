@@ -230,4 +230,19 @@ export class DealsController {
   async activity(@Param('id') id: string, @Body() body: DealActivityDto) {
     return this.dealsService.addActivity(id, body);
   }
+
+  @Post(':id/drive-folder')
+  async generateDriveFolder(
+    @Param('id') id: string,
+    @Body('email') email: string,
+    @Body('catalogItemId') catalogItemId: string,
+  ) {
+    if (!email?.trim()) {
+      throw new BadRequestException('email обязателен');
+    }
+    if (!catalogItemId?.trim()) {
+      throw new BadRequestException('catalogItemId обязателен');
+    }
+    return this.dealsService.generateDriveFolder(id, email.trim(), catalogItemId.trim());
+  }
 }

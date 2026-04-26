@@ -125,6 +125,21 @@ enum DealActivityKind {
   file
 }
 
+/// Уровень видимости финансовой информации для пользователей-правообладателей
+/// в кабинете /holder/*. Применяется только к организациям типа rights_holder.
+///
+/// `limited` — показываем только: статусы сделок (без сумм), даты, тип контракта,
+/// факт получения выплаты (да/нет/дата), но не сумму. Используется по умолчанию,
+/// если в договоре с правообладателем нет согласованного раскрытия деталей.
+///
+/// `full` — кроме перечисленного выше показываем суммы выплат, сумму контракта,
+/// валюту, разбивку по платежам. Включается менеджером вручную в карточке
+/// организации (требует подписанного приложения).
+enum HolderFinanceVisibility {
+  limited
+  full
+}
+
 model Organization {
   id         String           @id @default(uuid())
   legalName  String
@@ -132,6 +147,10 @@ model Organization {
   taxId      String?
   isResident Boolean          @default(false)
   type       OrganizationType
+  metadata   Json?
+  /// Флаг видимости финансов в кабинете правообладателя. По умолчанию
+  /// `limited` — не показываем суммы. Применяется только к rights_holder.
+  holderFinanceVisibility HolderFinanceVisibility @default(limited)
   createdAt  DateTime         @default(now())
   updatedAt  DateTime         @updatedAt
 
@@ -141,6 +160,8 @@ model Organization {
   taxProfiles          TaxProfile[]
   royaltyLines         RoyaltyLine[]
   payouts              Payout[]
+  holderInvites        HolderInvite[]
+  materialRequests     MaterialRequest[]
 }
 
 model User {
@@ -153,13 +174,146 @@ model User {
   displayName    String?
   role           UserRole
   locale         String    @default("ru")
+  /// Произвольные данные пользователя (телефон, флаги уведомлений и т.п.)
+  metadata       Json?
+  /// Когда был выслан инвайт (заполняется при создании учётки приглашением)
+  invitedAt          DateTime?
+  /// Кто пригласил (менеджер/админ, для аудита)
+  invitedByUserId    String?
+  /// Когда пользователь принял условия (NDA / правила использования платформы)
+  acceptedTermsAt    DateTime?
+  /// Версия принятых условий — на случай обновлений требуется повторное согласие
+  acceptedTermsVer   String?
+  /// Последний успешный вход — для аналитики и подозрительной активности
+  lastLoginAt        DateTime?
+  /// IP последнего входа (для аудита)
+  lastLoginIp        String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  ownedDeals     Deal[]         @relation("DealOwner")
-  tasks          Task[]
-  taskComments   TaskComment[]
-  dealActivities DealActivity[]
+  ownedDeals       Deal[]         @relation("DealOwner")
+  tasks            Task[]
+  taskComments     TaskComment[]
+  dealActivities   DealActivity[]
+  invitesSent      HolderInvite[] @relation("InviteCreator")
+  holderAuditLogs  HolderAuditLog[]
+  materialReviews  MaterialUpload[] @relation("MaterialReviewer")
+
+  @@index([organizationId])
+  @@index([role])
+}
+
+/// Инвайт-токен для приглашения правообладателя (или клиента) в кабинет.
+/// Сам токен в БД не хранится — только sha256-хеш. Токен живёт в email-ссылке.
+model HolderInvite {
+  id              String   @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// Email, на который отправлен инвайт (нормализованный, lowercase).
+  email           String
+  /// SHA-256 от исходного токена, который отправили в письме.
+  tokenHash       String   @unique
+  /// Создавший пользователь (менеджер/админ).
+  invitedByUserId String
+  invitedBy       User     @relation("InviteCreator", fields: [invitedByUserId], references: [id])
+  /// До какого времени инвайт валиден (рекомендуем 7 дней).
+  expiresAt       DateTime
+  /// Когда инвайт принят и создан/активирован пользователь. null — ещё не принят.
+  consumedAt      DateTime?
+  /// Какой User создан/привязан в результате принятия инвайта.
+  consumedByUserId String?
+  /// Опциональное приглашение-сообщение от менеджера.
+  note            String?
+  createdAt       DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([email])
+  @@index([expiresAt])
+}
+
+/// Аудит критичных действий правообладателя в кабинете.
+/// Используется для юридических/security-разборов — кто/когда/что/откуда.
+model HolderAuditLog {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  organizationId String
+  /// Машиночитаемое имя действия (login, view_deal, download_contract, sign_contract, upload_material, view_payout и т.д.)
+  action         String
+  /// Какая сущность затронута (Deal, Contract, CatalogItem, Payout, MaterialRequest)
+  entityType     String?
+  entityId       String?
+  ip             String?
+  userAgent      String?
+  /// Дополнительные машинные данные (например, slot для upload).
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+}
+
+/// Запрос на материалы по тайтлу: «нужны мастер, постер, субтитры RU/KZ к 30 мая».
+/// Создаёт менеджер, выполняет правообладатель в кабинете.
+enum MaterialRequestStatus {
+  pending
+  partial
+  complete
+  rejected
+  cancelled
+}
+
+model MaterialRequest {
+  id              String                 @id @default(uuid())
+  catalogItemId   String
+  catalogItem     CatalogItem            @relation(fields: [catalogItemId], references: [id], onDelete: Cascade)
+  /// Правообладатель, кому предъявлен запрос (для скоупа в кабинете).
+  organizationId  String
+  organization    Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// Список требуемых слотов: master_video, poster, subtitles_ru и т.д.
+  requestedSlots  String[]
+  status          MaterialRequestStatus  @default(pending)
+  dueAt           DateTime?
+  /// Свободный текст: пояснение менеджера правообладателю.
+  note            String?
+  createdByUserId String
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  uploads MaterialUpload[]
+
+  @@index([catalogItemId])
+  @@index([organizationId, status])
+}
+
+enum MaterialReviewStatus {
+  pending
+  approved
+  rejected
+}
+
+model MaterialUpload {
+  id              String              @id @default(uuid())
+  requestId       String
+  request         MaterialRequest     @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  /// Один из requestedSlots (master_video, poster, ...).
+  slot            String
+  /// Имя файла на диске (uploads/materials/{requestId}/{storedFileName}).
+  storedFileName  String              @db.VarChar(512)
+  originalName    String              @db.VarChar(512)
+  size            BigInt
+  mimeType        String?
+  reviewStatus    MaterialReviewStatus @default(pending)
+  reviewerComment String?             @db.Text
+  reviewedByUserId String?
+  reviewedBy      User?               @relation("MaterialReviewer", fields: [reviewedByUserId], references: [id])
+  reviewedAt      DateTime?
+  uploadedAt      DateTime            @default(now())
+
+  @@index([requestId])
+  @@index([slot])
+  @@index([reviewStatus])
 }
 
 model CatalogItem {
@@ -176,8 +330,9 @@ model CatalogItem {
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
-  licenseTerms LicenseTerm[]
-  deals        DealCatalogItem[]
+  licenseTerms     LicenseTerm[]
+  deals            DealCatalogItem[]
+  materialRequests MaterialRequest[]
 }
 
 model LicenseTerm {
@@ -274,6 +429,27 @@ model Contract {
   cabinetSignedAt     DateTime?
   /// Исходный контракт из CRM, если в кабинете прикрепили подпись к выпущенному документу
   sourceContractId    String?
+
+  // -------------------------------------------------------------------------
+  // Click-sign правообладателя из кабинета /holder/contracts/:id.
+  // Это юридически значимое действие: фиксируем кто, когда, с какого IP/UA
+  // и какую версию документа подписал. Меняется только из /v1/holder/...
+  // -------------------------------------------------------------------------
+  /// Кто подписал из кабинета правообладателя (User.id, role=rights_owner).
+  holderSignedByUserId String?
+  /// Когда подписан в кабинете правообладателя.
+  holderSignedAt       DateTime?
+  /// IP пользователя, выполнившего click-sign.
+  holderSignedIp       String?
+  /// User-Agent пользователя, выполнившего click-sign.
+  holderSignedUserAgent String?
+  /// Версия `ContractVersion.version`, на которую правообладатель кликнул.
+  holderSignedVersion  Int?
+  /// sha256 содержимого PDF на момент подписи (берём из ContractVersion.sha256).
+  /// Если в дальнейшем содержимое изменили — подпись не действительна.
+  holderSignedHash     String?
+  /// Версия пользовательского соглашения о подписании.
+  holderSignedTermsVer String?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
