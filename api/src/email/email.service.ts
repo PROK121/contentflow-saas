@@ -25,6 +25,28 @@ export interface SendEmailInput {
   /// Опционально — id связанной сущности (User/Contract/Invite),
   /// чтобы метрики можно было фильтровать.
   entityId?: string;
+  /// Display-name отправителя для поля From. Используется в «обычном» режиме,
+  /// когда mailbox жёстко зашит в EMAIL_FROM (без relay). Получатель видит:
+  ///   From: "manager@growixcontent.com через Growix Content" <info@growixcontent.com>
+  /// В relay-режиме (EMAIL_SENDER_OVERRIDE=true) display-name не используется,
+  /// потому что mailbox перезаписывается на email менеджера и так уже виден.
+  fromName?: string;
+  /// Полная подмена envelope-from. Работает ТОЛЬКО когда сервис запущен в
+  /// relay-режиме (EMAIL_SENDER_OVERRIDE=true) и SMTP-сервер разрешает
+  /// отправку от любого адреса домена. Пример: Google Workspace SMTP Relay
+  /// с «Allowed senders: Only addresses in my domains» — тогда мы логинимся
+  /// одним служебным аккаунтом (info@growixcontent.com), а в From ставим
+  /// личный адрес менеджера, инициировавшего действие. Получатель видит
+  /// именно его, без приписки «через сервис», DKIM/SPF подписаны Google'ом
+  /// от имени домена.
+  ///
+  /// Если override-режим выключен — это поле игнорируется, и используется
+  /// служебный mailbox + display-name. Безопасный фолбэк.
+  fromAddress?: string;
+  /// Куда придёт ответ, если получатель нажмёт «Reply». В relay-режиме
+  /// Reply-To избыточен (From уже = личной почте менеджера), но передавать
+  /// безопасно — сервис сам не будет его дублировать.
+  replyTo?: string;
 }
 
 /// EmailService — единая точка отправки писем.
@@ -43,7 +65,23 @@ export interface SendEmailInput {
 export class EmailService implements OnModuleInit {
   private readonly logger = new Logger(EmailService.name);
   private transporter: Transporter | null = null;
+  /// Email-адрес отправителя (mailbox) — должен принадлежать домену, под
+  /// который настроены SPF/DKIM/DMARC. Не путать с display-name.
   private fromAddress = 'noreply@growix.local';
+  /// Дефолтное display-name бренда — отображается, когда у конкретного
+  /// письма не задан собственный fromName.
+  private defaultFromName = 'Growix Content';
+  /// Включает relay-режим: для конкретного письма можно указать произвольный
+  /// envelope-from в пределах нашего домена (см. SendEmailInput.fromAddress).
+  /// Включается env-переменной EMAIL_SENDER_OVERRIDE=true и требует SMTP-
+  /// сервера, который это разрешает (Google Workspace SMTP Relay).
+  private senderOverrideEnabled = false;
+  /// Список доменов, для которых SMTP-сервер разрешает relay (envelope-from).
+  /// Заполняется из служебного mailbox (EMAIL_FROM) и дополнительной env
+  /// EMAIL_RELAY_DOMAINS (через запятую). Если адрес инициатора не попадает
+  /// в этот список — override игнорируется и письмо уходит со служебного
+  /// mailbox (типичный кейс: правообладатель с почтой gmail.com).
+  private relayDomains = new Set<string>();
 
   constructor(
     private readonly config: ConfigService,
@@ -53,10 +91,30 @@ export class EmailService implements OnModuleInit {
   onModuleInit() {
     const smtpUrl = this.config.get<string>('SMTP_URL');
     const explicitFrom = this.config.get<string>('EMAIL_FROM');
+    const explicitFromName = this.config.get<string>('EMAIL_FROM_NAME');
     const webOrigin = this.config.get<string>('WEB_ORIGIN') || '';
+    const senderOverride =
+      this.config.get<string>('EMAIL_SENDER_OVERRIDE') || '';
+    this.senderOverrideEnabled =
+      senderOverride.toLowerCase() === 'true' ||
+      senderOverride === '1' ||
+      senderOverride.toLowerCase() === 'yes';
+
+    if (explicitFromName) {
+      this.defaultFromName = explicitFromName;
+    }
 
     if (explicitFrom) {
-      this.fromAddress = explicitFrom;
+      // EMAIL_FROM может быть либо «чистым» адресом (noreply@growixcontent.com),
+      // либо в формате «Name <addr>». Парсим аккуратно: если есть угловые
+      // скобки — берём то, что внутри, и используем подпись как defaultFromName.
+      const m = /^\s*(?:"?([^"<]+?)"?\s*)?<([^>]+)>\s*$/.exec(explicitFrom);
+      if (m) {
+        if (m[1]) this.defaultFromName = m[1].trim();
+        this.fromAddress = m[2].trim();
+      } else {
+        this.fromAddress = explicitFrom.trim();
+      }
     } else {
       try {
         if (webOrigin) {
@@ -68,11 +126,21 @@ export class EmailService implements OnModuleInit {
       }
     }
 
+    // Список доменов, разрешённых для override. По умолчанию — домен
+    // служебного mailbox. Дополнительно можно перечислить через
+    // EMAIL_RELAY_DOMAINS=growixcontent.com,othercorp.kz.
+    const baseDomain = this.fromAddress.split('@')[1]?.toLowerCase().trim();
+    if (baseDomain) this.relayDomains.add(baseDomain);
+    const extraDomains = this.config.get<string>('EMAIL_RELAY_DOMAINS') || '';
+    for (const d of extraDomains.split(',').map((s) => s.trim().toLowerCase())) {
+      if (d) this.relayDomains.add(d);
+    }
+
     if (smtpUrl) {
       try {
         this.transporter = nodemailer.createTransport(smtpUrl);
         this.logger.log(
-          `EmailService: SMTP ready (from=${this.fromAddress})`,
+          `EmailService: SMTP ready (from="${this.defaultFromName}" <${this.fromAddress}>, sender-override=${this.senderOverrideEnabled}, relay-domains=[${[...this.relayDomains].join(',')}])`,
         );
       } catch (e) {
         this.logger.error(
@@ -84,31 +152,78 @@ export class EmailService implements OnModuleInit {
       }
     } else {
       this.logger.log(
-        `EmailService: SMTP_URL not set — running in CONSOLE mode (from=${this.fromAddress}). All emails are logged but not sent.`,
+        `EmailService: SMTP_URL not set — running in CONSOLE mode (from="${this.defaultFromName}" <${this.fromAddress}>, sender-override=${this.senderOverrideEnabled}). All emails are logged but not sent.`,
       );
     }
   }
 
+  private isAllowedRelayDomain(emailAddr: string): boolean {
+    const domain = emailAddr.split('@')[1]?.toLowerCase().trim();
+    if (!domain) return false;
+    return this.relayDomains.has(domain);
+  }
+
+  /// Сборка финального display-name. Sanitize: убираем угловые скобки и
+  /// двойные кавычки, чтобы корректно встроиться в RFC-5322 заголовок.
+  /// Если имя совпадает с base — не дублируем «Имя через Бренд».
+  private composeFromName(custom: string | undefined): string {
+    const base = this.defaultFromName;
+    const safe = (s: string) => s.replace(/[<>"]/g, '').trim();
+    if (!custom) return base;
+    const c = safe(custom);
+    if (!c) return base;
+    if (c === base) return base;
+    return `${c} через ${base}`;
+  }
+
   /// Отправка письма. Не бросает — ошибки логируются.
   async send(input: SendEmailInput): Promise<{ ok: boolean; mode: 'smtp' | 'console' }>{
+    // В relay-режиме envelope-from подменяем на адрес инициатора (если он
+    // в нашем домене и SMTP-сервер это разрешает). В обычном — display-name
+    // подставляется к служебному mailbox'у.
+    const useOverride =
+      this.senderOverrideEnabled &&
+      !!input.fromAddress &&
+      isLikelyEmail(input.fromAddress) &&
+      this.isAllowedRelayDomain(input.fromAddress);
+
+    let fromHeader: string | { name: string; address: string };
+    if (useOverride) {
+      // Чистый From без display-name: получатель видит ровно email менеджера.
+      fromHeader = input.fromAddress as string;
+    } else {
+      fromHeader = {
+        name: this.composeFromName(input.fromName),
+        address: this.fromAddress,
+      };
+    }
+
     if (!this.transporter) {
+      const fromStr =
+        typeof fromHeader === 'string'
+          ? fromHeader
+          : `"${fromHeader.name}" <${fromHeader.address}>`;
+      const replyHint = input.replyTo ? `\nReply-To: ${input.replyTo}` : '';
       this.logger.log(
-        `[EMAIL/${input.category}] -> ${input.to}\nSubject: ${input.subject}\n---\n${input.text}\n---`,
+        `[EMAIL/${input.category}] -> ${input.to}\nFrom: ${fromStr}${replyHint}\nSubject: ${input.subject}\n---\n${input.text}\n---`,
       );
       return { ok: true, mode: 'console' };
     }
     try {
       await this.transporter.sendMail({
-        from: this.fromAddress,
+        from: fromHeader,
         to: input.to,
+        replyTo: input.replyTo,
         subject: input.subject,
         text: input.text,
         html: input.html,
       });
+      const fromStr =
+        typeof fromHeader === 'string' ? fromHeader : fromHeader.address;
       this.logger.log(
-        `[EMAIL/${input.category}] sent ok -> ${input.to}${
+        `[EMAIL/${input.category}] sent ok -> ${input.to} (from=${fromStr})${
           input.entityId ? ` (entity=${input.entityId})` : ''
-        }`,
+        }${input.replyTo ? ` (reply-to=${input.replyTo})` : ''}`,
       );
       return { ok: true, mode: 'smtp' };
     } catch (e) {
@@ -130,6 +245,12 @@ export class EmailService implements OnModuleInit {
     category: string;
     entityId?: string;
     template: EmailTemplateInput;
+    /// См. `SendEmailInput.fromName` — display-name отправителя.
+    fromName?: string;
+    /// См. `SendEmailInput.fromAddress` — подмена envelope-from в relay-режиме.
+    fromAddress?: string;
+    /// См. `SendEmailInput.replyTo` — куда придёт «Ответить».
+    replyTo?: string;
     /// Если true — перед отправкой проверим
     /// `User.metadata.notificationsEnabled` для адресата (по email) и не будем
     /// слать, если пользователь явно отписался. Транзакционные письма
@@ -153,6 +274,9 @@ export class EmailService implements OnModuleInit {
       subject: input.subject,
       category: input.category,
       entityId: input.entityId,
+      fromName: input.fromName,
+      fromAddress: input.fromAddress,
+      replyTo: input.replyTo,
       text,
       html,
     });
@@ -190,4 +314,12 @@ export class EmailService implements OnModuleInit {
       ? `${origin}${pathWithLeadingSlash}`
       : pathWithLeadingSlash;
   }
+}
+
+/// Минимальная валидация email — нужна, чтобы случайно не передать в From
+/// пустую строку или мусор (это вызовет 5xx от SMTP-сервера).
+function isLikelyEmail(s: string): boolean {
+  if (!s) return false;
+  const trimmed = s.trim();
+  return /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(trimmed);
 }

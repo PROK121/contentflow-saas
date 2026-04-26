@@ -72,6 +72,32 @@ services:
       # Если не нужен — оставь пустым, код использует дефолт.
       - key: ADMIN_DELETE_EMAIL
         sync: false
+      # SMTP-подключение для отправки писем (Google Workspace SMTP Relay):
+      #   smtp://info%40growixcontent.com:APP_PASSWORD@smtp-relay.gmail.com:587?secure=false&requireTLS=true
+      # Требует включённого SMTP Relay в Admin Console:
+      # Apps -> Gmail -> Routing -> SMTP relay service.
+      # Если не задано — письма уходят в логи (CONSOLE-режим).
+      - key: SMTP_URL
+        sync: false
+      # Email-адрес служебного отправителя. В relay-режиме перезаписывается
+      # на email инициатора. Может включать display-name:
+      #   "Growix Content <info@growixcontent.com>"
+      - key: EMAIL_FROM
+        sync: false
+      # Display-name бренда. Подставляется, когда у конкретного письма
+      # нет fromName инициирующего менеджера.
+      - key: EMAIL_FROM_NAME
+        sync: false
+      # Включает relay-режим: envelope-from подменяется на email инициатора
+      # (менеджера/правообладателя) для каждого письма. Только если SMTP-
+      # сервер это разрешает (Google Workspace SMTP Relay).
+      # Значения: true | false. По умолчанию выключен.
+      - key: EMAIL_SENDER_OVERRIDE
+        sync: false
+      # Через запятую — домены, для которых SMTP-сервер разрешает relay.
+      # Адреса вне этих доменов уходят со служебного EMAIL_FROM.
+      - key: EMAIL_RELAY_DOMAINS
+        sync: false
 
   # ===========================================================================
   # WEB — Next.js панель управления

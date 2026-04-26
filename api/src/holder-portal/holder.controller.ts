@@ -482,6 +482,9 @@ export class HolderController {
       subject: `Контракт ${c.number} подписан правообладателем`,
       entityId: contractId,
       respectUserPrefs: true,
+      fromName: holderUser.email,
+      fromAddress: holderUser.email,
+      replyTo: holderUser.email,
       template: {
         title: `Контракт ${c.number} подписан`,
         preheader: 'Правообладатель завершил click-sign в кабинете',
@@ -579,6 +582,9 @@ export class HolderController {
         subject: `Новое предложение тайтла: ${dto.title}`,
         entityId: task.id,
         respectUserPrefs: true,
+        fromName: user.email,
+        fromAddress: user.email,
+        replyTo: user.email,
         template: {
           title: 'Предложение нового тайтла',
           preheader: `${dto.title} — от ${orgInfo?.legalName ?? 'правообладателя'}`,

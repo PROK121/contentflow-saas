@@ -58,6 +58,9 @@ export class HolderAuthController {
       category: 'holder-invite',
       subject: 'Приглашение в кабинет правообладателя GROWIX',
       entityId: result.inviteId,
+      fromName: me.email,
+      fromAddress: me.email,
+      replyTo: me.email,
       template: {
         title: 'Вас пригласили в кабинет правообладателя',
         preheader: `${me.email} открыл(а) вам доступ в GROWIX`,
@@ -68,7 +71,7 @@ export class HolderAuthController {
         ],
         cta: { label: 'Принять приглашение', url: acceptUrl },
         ctaNote:
-          'Если кнопка не работает, скопируйте и вставьте ссылку в браузер вручную.',
+          'Если кнопка не работает, скопируйте и вставьте ссылку в браузер вручную. По любым вопросам ответьте на это письмо — оно придёт менеджеру.',
       },
     });
 

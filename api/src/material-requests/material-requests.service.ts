@@ -213,6 +213,7 @@ export class MaterialRequestsService {
       originalName: upload.originalName,
       reviewStatus: dto.reviewStatus,
       reviewerComment: dto.reviewerComment ?? null,
+      reviewer,
     }).catch((e) =>
       this.logger.error(
         `notifyHoldersUploadReviewed failed: ${e instanceof Error ? e.message : String(e)}`,
@@ -434,6 +435,16 @@ export class MaterialRequestsService {
     const recipients = await this.getHolderEmailsForOrg(req.organizationId);
     if (recipients.length === 0) return;
 
+    // Подтягиваем менеджера-инициатора для From/Reply-To. Имя не подставляем,
+    // показываем только email — так получатель сразу видит личный адрес для
+    // ответа.
+    const creator = await this.prisma.user.findUnique({
+      where: { id: req.createdByUserId },
+      select: { email: true },
+    });
+    const senderLabel = creator?.email ?? 'Менеджер';
+    const senderReplyTo = creator?.email;
+
     const url = this.email.buildWebUrl(`/holder/materials/${req.id}`);
     const slotLabels = req.requestedSlots
       .map((key) => MATERIAL_SLOTS.find((s) => s.key === key)?.label ?? key)
@@ -446,11 +457,14 @@ export class MaterialRequestsService {
         subject: `Запрос материалов: ${req.catalogItem.title}`,
         entityId: req.id,
         respectUserPrefs: true,
+        fromName: senderLabel,
+        fromAddress: senderReplyTo,
+        replyTo: senderReplyTo,
         template: {
           title: 'Менеджер запросил материалы',
           preheader: `Тайтл: ${req.catalogItem.title}`,
           paragraphs: [
-            `Менеджер GROWIX создал запрос материалов по тайтлу <strong>${escapeHtml(req.catalogItem.title)}</strong>.`,
+            `<strong>${escapeHtml(senderLabel)}</strong> создал(а) запрос материалов по тайтлу <strong>${escapeHtml(req.catalogItem.title)}</strong>.`,
             req.note
               ? `Комментарий менеджера: <em>${escapeHtml(req.note)}</em>`
               : 'Загрузить материалы можно из кабинета — в карточке запроса по ссылке ниже.',
@@ -467,6 +481,9 @@ export class MaterialRequestsService {
               : []),
           ],
           cta: { label: 'Открыть запрос', url },
+          ctaNote: senderReplyTo
+            ? 'Чтобы задать вопрос менеджеру — просто ответьте на это письмо.'
+            : undefined,
         },
       });
     }
@@ -478,6 +495,7 @@ export class MaterialRequestsService {
     originalName: string;
     reviewStatus: MaterialReviewStatus;
     reviewerComment: string | null;
+    reviewer: AuthUserView;
   }): Promise<void> {
     const req = await this.prisma.materialRequest.findUnique({
       where: { id: input.requestId },
@@ -499,6 +517,7 @@ export class MaterialRequestsService {
     const subject = isApproved
       ? `Материал принят: ${input.originalName}`
       : `Материал отклонён: ${input.originalName}`;
+    const reviewerEmail = input.reviewer.email ?? 'Менеджер';
 
     for (const to of recipients) {
       void this.email.sendTemplated({
@@ -507,6 +526,9 @@ export class MaterialRequestsService {
         subject,
         entityId: req.id,
         respectUserPrefs: true,
+        fromName: reviewerEmail,
+        fromAddress: input.reviewer.email,
+        replyTo: input.reviewer.email,
         template: {
           title: isApproved ? 'Материал принят' : 'Материал отклонён',
           preheader: `${slotLabel} • ${req.catalogItem.title}`,
