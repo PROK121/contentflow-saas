@@ -171,17 +171,31 @@ export class HolderController {
     // Телефон и флаги храним в `User.metadata` (jsonb), отдельных колонок нет.
     const dbUser = await this.prisma.user.findUnique({
       where: { id: user.id },
-      select: { metadata: true },
+      select: {
+        metadata: true,
+        holderFinanceOverride: true,
+        organization: {
+          select: { holderFinanceVisibility: true },
+        },
+      },
     });
     const meta = (dbUser?.metadata as
       | { phone?: string; notificationsEnabled?: boolean }
       | null
       | undefined) ?? null;
+    const orgVis = dbUser?.organization?.holderFinanceVisibility ?? "limited";
+    const eff =
+      dbUser?.holderFinanceOverride !== null && dbUser?.holderFinanceOverride !== undefined
+        ? dbUser.holderFinanceOverride
+        : orgVis;
     return {
       user: {
         ...user,
         phone: meta?.phone ?? null,
         notificationsEnabled: meta?.notificationsEnabled !== false,
+        holderFinanceOverride: dbUser?.holderFinanceOverride ?? null,
+        orgHolderFinanceVisibility: orgVis,
+        effectiveHolderFinance: eff,
       },
       onboardingComplete: !!user.acceptedTermsAt,
     };
@@ -276,7 +290,10 @@ export class HolderController {
   @Get('dashboard')
   async dashboard(@Req() req: Request) {
     const user = authUser(req);
-    const counters = await this.scope.dashboardCounters(user.organizationId!);
+    const counters = await this.scope.dashboardCounters(
+      user.organizationId!,
+      user.id,
+    );
     void this.audit.log({
       user,
       action: 'view_dashboard',
@@ -337,7 +354,7 @@ export class HolderController {
   @Get('payouts')
   async payouts(@Req() req: Request) {
     const user = authUser(req);
-    return this.scope.listPayouts(user.organizationId!);
+    return this.scope.listPayouts(user.organizationId!, user.id);
   }
 
   // -------------------------------------------------------------------------

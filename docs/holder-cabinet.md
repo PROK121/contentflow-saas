@@ -240,29 +240,40 @@ UI:
 Schema:
 
 - Enum `HolderFinanceVisibility { limited, full }`.
-- `Organization.holderFinanceVisibility` (default `limited`).
-- Миграция в той же `iter3_holder_sign_and_visibility`.
+- `Organization.holderFinanceVisibility` (default `limited`) — настройка по компании.
+- `User.holderFinanceOverride` (optional, тот же enum) — для представителя
+  правообладателя: если `null`, наследуется `Organization.holderFinanceVisibility`.
+- Миграция `user_holder_finance_override` добавляет поле в `User`.
 
 Бэкенд (`HolderScopeService`):
 
-- `getFinanceVisibility(orgId)` — общий помощник.
-- `listPayouts(orgId)` теперь возвращает
-`{ items, financeVisibility }`. В `limited` суммы вырезаются из ответа
+- `getEffectiveFinanceVisibility(userId, orgId)` — итоговый уровень: override
+  пользователя или настройка организации.
+- `listPayouts(orgId, viewerUserId)` возвращает
+`{ items, financeVisibility }` с `financeVisibility` по **текущему** представителю. В `limited` суммы вырезаются из ответа
 (остаются `id`, `currency`, `createdAt`, `contract`).
-- `dashboardCounters(orgId)` — добавлено `financeVisibility`,
-`payoutsCount`, и в `limited` режиме `payoutsTotal=null`,
+- `dashboardCounters(orgId, viewerUserId)` — `financeVisibility` по
+текущему представителю, `payoutsCount`, и в `limited` режиме `payoutsTotal=null`,
 `lastPayout` без `amount`.
 
 CRM API:
 
-- `PATCH /v1/organizations/:id/holder-visibility`
-Body: `{ visibility: 'limited' | 'full' }`.
+- `PATCH /v1/organizations/:id/holder-visibility` — настройка **по компании**.
+  Body: `{ visibility: 'limited' | 'full' }` (роль `manager` | `admin`).
+- `PATCH /v1/organizations/:id/holder-representatives/:userId/visibility` —
+  индивидуальная настройка представителя. Body: `{ visibility: 'inherit' | 'limited' | 'full' }`.
+
+Список инвайтов/представителей:
+
+- `GET /v1/auth/holder/invites?orgId=…` — в каждом пользователе: `holderFinanceOverride`,
+`effectiveHolderFinance`, плюс `orgHolderFinanceVisibility` по организации.
 
 CRM UI (`/counterparties`):
 
-- В развёрнутой карточке организации — переключатель «Ограниченно /
-Полный доступ» с пояснением, когда что использовать. Ошибки
-откатываются перезагрузкой списка.
+- Переключатель уровня по компании (как раньше).
+- У каждого активного представителя — выпадающий список: «как у компании»,
+«без сумм» или «полный доступ».
+- Ошибки откатываются перезагрузкой списка.
 
 UI кабинета:
 

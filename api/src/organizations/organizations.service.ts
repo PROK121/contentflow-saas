@@ -1,8 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   HolderFinanceVisibility,
   OrganizationType,
   Prisma,
+  UserRole,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
@@ -87,5 +92,60 @@ export class OrganizationsService {
       where: { id: orgId },
       data: { holderFinanceVisibility: visibility },
     });
+  }
+
+  /// Индивидуальный уровень видимости финансов для представителя
+  /// (`rights_owner`). `inherit` — снять override, пользоваться настройкой организации.
+  async setHolderUserFinanceOverride(
+    orgId: string,
+    userId: string,
+    visibility: 'inherit' | HolderFinanceVisibility,
+  ) {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: orgId },
+      select: { id: true, type: true, holderFinanceVisibility: true },
+    });
+    if (!org) throw new NotFoundException('Организация не найдена');
+    if (org.type !== OrganizationType.rights_holder) {
+      throw new BadRequestException(
+        'Переопределение доступа доступно только для правообладателей',
+      );
+    }
+    const target = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        organizationId: true,
+        role: true,
+        email: true,
+        displayName: true,
+      },
+    });
+    if (!target) throw new NotFoundException('Пользователь не найден');
+    if (target.organizationId !== orgId) {
+      throw new BadRequestException('Пользователь не относится к этой организации');
+    }
+    if (target.role !== UserRole.rights_owner) {
+      throw new BadRequestException(
+        'Права доступа настраиваются только для кабинета правообладателя',
+      );
+    }
+    const override: HolderFinanceVisibility | null =
+      visibility === 'inherit' ? null : visibility;
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { holderFinanceOverride: override },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        holderFinanceOverride: true,
+      },
+    });
+    return {
+      ...updated,
+      effectiveHolderFinance:
+        updated.holderFinanceOverride ?? org.holderFinanceVisibility,
+    };
   }
 }

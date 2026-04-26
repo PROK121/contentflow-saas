@@ -16,14 +16,30 @@ import { PrismaService } from '../prisma/prisma.service';
 export class HolderScopeService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /// Возвращает уровень видимости финансов организации.
-  /// Используется выборками payouts/dashboard. По умолчанию `limited`.
-  async getFinanceVisibility(orgId: string): Promise<HolderFinanceVisibility> {
-    const org = await this.prisma.organization.findUnique({
-      where: { id: orgId },
-      select: { holderFinanceVisibility: true },
-    });
-    return org?.holderFinanceVisibility ?? HolderFinanceVisibility.limited;
+  /// Эффективный уровень видимости финансов для конкретного представителя:
+  /// `User.holderFinanceOverride` либо, если не задан, уровень организации.
+  async getEffectiveFinanceVisibility(
+    userId: string,
+    orgId: string,
+  ): Promise<HolderFinanceVisibility> {
+    const [org, user] = await Promise.all([
+      this.prisma.organization.findUnique({
+        where: { id: orgId },
+        select: { holderFinanceVisibility: true },
+      }),
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { organizationId: true, holderFinanceOverride: true },
+      }),
+    ]);
+    if (user?.organizationId !== orgId) {
+      return org?.holderFinanceVisibility ?? HolderFinanceVisibility.limited;
+    }
+    return (
+      user.holderFinanceOverride ??
+      org?.holderFinanceVisibility ??
+      HolderFinanceVisibility.limited
+    );
   }
 
   // ==========================================================================
@@ -138,8 +154,11 @@ export class HolderScopeService {
   // PAYOUTS — выплаты строго по rightsHolderOrgId
   // ==========================================================================
 
-  async listPayouts(orgId: string) {
-    const visibility = await this.getFinanceVisibility(orgId);
+  async listPayouts(orgId: string, viewerUserId: string) {
+    const visibility = await this.getEffectiveFinanceVisibility(
+      viewerUserId,
+      orgId,
+    );
 
     const rows = await this.prisma.payout.findMany({
       where: { rightsHolderOrgId: orgId },
@@ -214,8 +233,11 @@ export class HolderScopeService {
   // DASHBOARD — агрегаты для главной кабинета
   // ==========================================================================
 
-  async dashboardCounters(orgId: string) {
-    const visibility = await this.getFinanceVisibility(orgId);
+  async dashboardCounters(orgId: string, viewerUserId: string) {
+    const visibility = await this.getEffectiveFinanceVisibility(
+      viewerUserId,
+      orgId,
+    );
     const [
       titlesCount,
       activeDealsCount,

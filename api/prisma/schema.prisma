@@ -176,6 +176,10 @@ model User {
   locale         String    @default("ru")
   /// Произвольные данные пользователя (телефон, флаги уведомлений и т.п.)
   metadata       Json?
+  /// Переопределение видимости финансов в кабинете /holder/* для представителя
+  /// правообладателя. `null` — наследовать `Organization.holderFinanceVisibility`.
+  /// Только для роли `rights_owner`; для остальных ролей поле не используется.
+  holderFinanceOverride HolderFinanceVisibility?
   /// Когда был выслан инвайт (заполняется при создании учётки приглашением)
   invitedAt          DateTime?
   /// Кто пригласил (менеджер/админ, для аудита)

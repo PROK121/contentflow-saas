@@ -15,6 +15,12 @@ import {
   dealTerritoryLabel,
 } from "@/lib/deal-territory-presets";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/figma/components/ui/tabs";
+import {
+  MaterialRequest,
+  MaterialRequestStatus,
+  STATUS_LABEL,
+  STATUS_TONE,
+} from "@/lib/material-requests";
 
 type CatalogItemRow = {
   id: string;
@@ -256,6 +262,72 @@ function dealStageLabel(stage: string): string {
   }
 }
 
+/// Сводный статус по тайтлу: что вообще с материалами на этом тайтле.
+/// Игнорируем отменённые/отклонённые запросы — они не влияют на готовность.
+/// Возвращаем `null`, если по тайтлу никто ничего не запрашивал.
+function aggregateMaterialStatus(
+  reqs: readonly MaterialRequest[],
+): MaterialRequestStatus | null {
+  const active = reqs.filter(
+    (r) => r.status !== "cancelled" && r.status !== "rejected",
+  );
+  if (active.length === 0) return null;
+  if (active.some((r) => r.status === "pending")) return "pending";
+  if (active.some((r) => r.status === "partial")) return "partial";
+  if (active.every((r) => r.status === "complete")) return "complete";
+  return "partial";
+}
+
+/// Статус конкретного слота (или группы слотов) для одного тайтла.
+/// Учитывает все активные запросы и их аплоады. Возвращает строку,
+/// которую сразу можно отрисовать в ячейке таблицы.
+type SlotCellStatus = "approved" | "pending" | "rejected" | "requested" | "none";
+
+function slotCellStatus(
+  reqs: readonly MaterialRequest[],
+  slotKeys: readonly string[],
+): SlotCellStatus {
+  const active = reqs.filter(
+    (r) => r.status !== "cancelled" && r.status !== "rejected",
+  );
+  let requested = false;
+  let pending = false;
+  let rejected = false;
+  let approved = false;
+  for (const r of active) {
+    if (!r.requestedSlots.some((s) => slotKeys.includes(s))) continue;
+    requested = true;
+    const ups = r.uploads.filter((u) => slotKeys.includes(u.slot));
+    if (ups.some((u) => u.reviewStatus === "approved")) approved = true;
+    if (ups.some((u) => u.reviewStatus === "pending")) pending = true;
+    if (ups.some((u) => u.reviewStatus === "rejected")) rejected = true;
+  }
+  if (approved && !pending && !rejected) return "approved";
+  if (approved) return "approved";
+  if (pending) return "pending";
+  if (rejected) return "rejected";
+  if (requested) return "requested";
+  return "none";
+}
+
+function SlotStatusCell({ status }: { status: SlotCellStatus }) {
+  if (status === "none") {
+    return <span className="text-muted-foreground">—</span>;
+  }
+  const map: Record<Exclude<SlotCellStatus, "none">, { label: string; tone: string }> = {
+    approved: { label: "Готово", tone: "bg-emerald-50 text-emerald-700" },
+    pending: { label: "На проверке", tone: "bg-amber-50 text-amber-700" },
+    rejected: { label: "Отклонён", tone: "bg-red-50 text-red-700" },
+    requested: { label: "Запрошено", tone: "bg-blue-50 text-blue-700" },
+  };
+  const { label, tone } = map[status];
+  return (
+    <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${tone}`}>
+      {label}
+    </span>
+  );
+}
+
 function TableShell({
   children,
   className = "",
@@ -287,13 +359,19 @@ function Th({ children, className = "" }: { children: React.ReactNode; className
 function Td({
   children,
   className = "",
+  title,
+  colSpan,
 }: {
   children: React.ReactNode;
   className?: string;
+  title?: string;
+  colSpan?: number;
 }) {
   return (
     <td
       className={`border-b border-border/60 px-2 py-1.5 text-xs text-foreground align-top ${className}`}
+      title={title}
+      colSpan={colSpan}
     >
       {children}
     </td>
@@ -305,6 +383,7 @@ export function RightsBase() {
   const [deals, setDeals] = useState<DealRow[]>([]);
   const [orgs, setOrgs] = useState<OrgRow[]>([]);
   const [contracts, setContracts] = useState<ContractRow[]>([]);
+  const [materialRequests, setMaterialRequests] = useState<MaterialRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -312,22 +391,25 @@ export function RightsBase() {
     setLoading(true);
     setErr(null);
     try {
-      const [cat, dls, org, ctr] = await Promise.all([
+      const [cat, dls, org, ctr, mr] = await Promise.all([
         v1Fetch<CatalogItemRow[]>("/catalog/items"),
         v1Fetch<DealRow[]>("/deals"),
         v1Fetch<OrgRow[]>("/organizations?type=client"),
         v1Fetch<ContractRow[]>("/contracts?limit=200"),
+        v1Fetch<MaterialRequest[]>("/material-requests").catch(() => [] as MaterialRequest[]),
       ]);
       setCatalog(cat.filter((c) => c.status !== "archived"));
       setDeals(dls.filter((x) => x.archived !== true));
       setOrgs(org);
       setContracts(ctr);
+      setMaterialRequests(mr);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Ошибка загрузки");
       setCatalog([]);
       setDeals([]);
       setOrgs([]);
       setContracts([]);
+      setMaterialRequests([]);
     } finally {
       setLoading(false);
     }
@@ -346,6 +428,19 @@ export function RightsBase() {
     }
     return m;
   }, [contracts]);
+
+  /// Группируем запросы материалов по catalogItemId для быстрого доступа
+  /// в таблице «Материалы». Один тайтл может иметь несколько запросов
+  /// (разные слоты, разные итерации).
+  const materialRequestsByCatalogItemId = useMemo(() => {
+    const m = new Map<string, MaterialRequest[]>();
+    for (const r of materialRequests) {
+      const arr = m.get(r.catalogItemId) ?? [];
+      arr.push(r);
+      m.set(r.catalogItemId, arr);
+    }
+    return m;
+  }, [materialRequests]);
 
   const chainStatusByCatalogItemId = useMemo(() => {
     const statuses = new Map<string, string>();
@@ -781,22 +876,68 @@ export function RightsBase() {
             </thead>
             <tbody>
               {catalog.map((item) => {
-                const dash = "—";
+                const reqs = materialRequestsByCatalogItemId.get(item.id) ?? [];
+                const agg = aggregateMaterialStatus(reqs);
+                const masterVideo = slotCellStatus(reqs, ["master_video"]);
+                const subtitles = slotCellStatus(reqs, [
+                  "subtitles_ru",
+                  "subtitles_kz",
+                  "subtitles_en",
+                ]);
+                const dub = slotCellStatus(reqs, ["dub_audio"]);
+                const trailer = slotCellStatus(reqs, ["trailer"]);
+                const posterReq = slotCellStatus(reqs, ["poster", "banner", "still"]);
+                const synopsis = slotCellStatus(reqs, ["synopsis"]);
+                const techSpecs = slotCellStatus(reqs, ["tech_specs"]);
+                const activeCount = reqs.filter(
+                  (r) => r.status !== "cancelled" && r.status !== "rejected",
+                ).length;
+                const latestNote = reqs
+                  .slice()
+                  .sort((a, b) =>
+                    a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0,
+                  )
+                  .find((r) => (r.note ?? "").trim().length > 0)?.note;
                 return (
                   <tr key={item.id}>
                     <Td>{titleId(item)}</Td>
-                    <Td>{dash}</Td>
-                    <Td>{dash}</Td>
-                    <Td>{dash}</Td>
-                    <Td>{dash}</Td>
-                    <Td>{dash}</Td>
-                    <Td>{dash}</Td>
-                    <Td>{item.posterFileName ? "есть постер" : dash}</Td>
-                    <Td>{dash}</Td>
-                    <Td>{dash}</Td>
-                    <Td>{dash}</Td>
-                    <Td>{dash}</Td>
-                    <Td>{dash}</Td>
+                    <Td><SlotStatusCell status={masterVideo} /></Td>
+                    <Td><span className="text-muted-foreground">—</span></Td>
+                    <Td><span className="text-muted-foreground">—</span></Td>
+                    <Td><SlotStatusCell status={subtitles} /></Td>
+                    <Td><SlotStatusCell status={dub} /></Td>
+                    <Td><SlotStatusCell status={trailer} /></Td>
+                    <Td>
+                      {posterReq !== "none" ? (
+                        <SlotStatusCell status={posterReq} />
+                      ) : item.posterFileName ? (
+                        <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                          есть постер
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </Td>
+                    <Td><SlotStatusCell status={techSpecs} /></Td>
+                    <Td><SlotStatusCell status={synopsis} /></Td>
+                    <Td><span className="text-muted-foreground">—</span></Td>
+                    <Td>
+                      {agg ? (
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_TONE[agg]}`}
+                          title={`${activeCount} активных ${activeCount === 1 ? "запрос" : "запроса/-ов"}`}
+                        >
+                          {STATUS_LABEL[agg]}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Не запрошены</span>
+                      )}
+                    </Td>
+                    <Td className="max-w-[280px] truncate" title={latestNote ?? undefined}>
+                      {activeCount > 0
+                        ? `${activeCount} ${activeCount === 1 ? "запрос" : activeCount < 5 ? "запроса" : "запросов"}${latestNote ? ` · ${latestNote}` : ""}`
+                        : "—"}
+                    </Td>
                   </tr>
                 );
               })}

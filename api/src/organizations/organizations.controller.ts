@@ -2,20 +2,37 @@ import {
   BadRequestException,
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Param,
   Patch,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
-import { HolderFinanceVisibility, OrganizationType } from '@prisma/client';
+import { HolderFinanceVisibility, OrganizationType, UserRole } from '@prisma/client';
 import { IsIn } from 'class-validator';
+import type { Request } from 'express';
+import { AuthUserView } from '../auth/auth-user.types';
 import { OrganizationsService } from './organizations.service';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 
 class SetHolderVisibilityDto {
   @IsIn(['limited', 'full'])
   visibility!: HolderFinanceVisibility;
+}
+
+class SetHolderUserVisibilityDto {
+  @IsIn(['inherit', 'limited', 'full'])
+  visibility!: 'inherit' | HolderFinanceVisibility;
+}
+
+function assertManagerOrAdmin(req: Request) {
+  const me = req.user as AuthUserView | undefined;
+  if (!me) throw new BadRequestException('Auth required');
+  if (me.role !== UserRole.admin && me.role !== UserRole.manager) {
+    throw new ForbiddenException('Недостаточно прав: нужна роль менеджера');
+  }
 }
 
 @Controller('organizations')
@@ -36,12 +53,38 @@ export class OrganizationsController {
   setHolderVisibility(
     @Param('id') id: string,
     @Body() body: SetHolderVisibilityDto,
+    @Req() req: Request,
   ) {
+    assertManagerOrAdmin(req);
     if (body.visibility !== 'limited' && body.visibility !== 'full') {
       throw new BadRequestException('Допустимые значения: limited | full');
     }
     return this.organizationsService.setHolderFinanceVisibility(
       id,
+      body.visibility,
+    );
+  }
+
+  /// Доступ к финансам в кабинете для одного представителя правообладателя
+  /// (при нескольких учётках — настраивается отдельно). `inherit` = как у компании.
+  @Patch(':id/holder-representatives/:userId/visibility')
+  setHolderUserVisibility(
+    @Param('id') orgId: string,
+    @Param('userId') userId: string,
+    @Body() body: SetHolderUserVisibilityDto,
+    @Req() req: Request,
+  ) {
+    assertManagerOrAdmin(req);
+    if (
+      body.visibility !== 'inherit' &&
+      body.visibility !== 'limited' &&
+      body.visibility !== 'full'
+    ) {
+      throw new BadRequestException('Допустимые значения: inherit | limited | full');
+    }
+    return this.organizationsService.setHolderUserFinanceOverride(
+      orgId,
+      userId,
       body.visibility,
     );
   }

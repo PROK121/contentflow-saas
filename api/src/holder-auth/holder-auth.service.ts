@@ -65,7 +65,11 @@ export class HolderAuthService {
   // ==========================================================================
 
   async listOrgInvites(orgId: string) {
-    const [invites, users] = await Promise.all([
+    const [org, invites, users] = await Promise.all([
+      this.prisma.organization.findUnique({
+        where: { id: orgId },
+        select: { holderFinanceVisibility: true },
+      }),
       this.prisma.holderInvite.findMany({
         where: { organizationId: orgId },
         orderBy: { createdAt: 'desc' },
@@ -91,10 +95,16 @@ export class HolderAuthService {
           lastLoginAt: true,
           acceptedTermsAt: true,
           createdAt: true,
+          holderFinanceOverride: true,
         },
       }),
     ]);
-    return { invites, users };
+    const orgDefault = org?.holderFinanceVisibility ?? 'limited';
+    const usersWithEff = users.map((u) => ({
+      ...u,
+      effectiveHolderFinance: u.holderFinanceOverride ?? orgDefault,
+    }));
+    return { invites, users: usersWithEff, orgHolderFinanceVisibility: orgDefault };
   }
 
   // ==========================================================================

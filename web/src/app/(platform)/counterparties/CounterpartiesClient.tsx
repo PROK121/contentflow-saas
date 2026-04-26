@@ -42,11 +42,15 @@ interface UserRow {
   lastLoginAt: string | null;
   acceptedTermsAt: string | null;
   createdAt: string;
+  /** null = наследовать настройку компании */
+  holderFinanceOverride: HolderFinanceVisibility | null;
+  effectiveHolderFinance: HolderFinanceVisibility;
 }
 
 interface OrgState {
   invites: InviteRow[];
   users: UserRow[];
+  orgHolderFinanceVisibility: HolderFinanceVisibility;
   loading: boolean;
   expanded: boolean;
 }
@@ -87,14 +91,18 @@ export function CounterpartiesClient() {
       [orgId]: {
         invites: s[orgId]?.invites ?? [],
         users: s[orgId]?.users ?? [],
+        orgHolderFinanceVisibility:
+          s[orgId]?.orgHolderFinanceVisibility ?? "limited",
         loading: true,
         expanded: true,
       },
     }));
     try {
-      const data = await v1Fetch<{ invites: InviteRow[]; users: UserRow[] }>(
-        `/auth/holder/invites?orgId=${encodeURIComponent(orgId)}`,
-      );
+      const data = await v1Fetch<{
+        invites: InviteRow[];
+        users: UserRow[];
+        orgHolderFinanceVisibility: HolderFinanceVisibility;
+      }>(`/auth/holder/invites?orgId=${encodeURIComponent(orgId)}`);
       setState((s) => ({
         ...s,
         [orgId]: { ...data, loading: false, expanded: true },
@@ -105,6 +113,7 @@ export function CounterpartiesClient() {
         [orgId]: {
           invites: [],
           users: [],
+          orgHolderFinanceVisibility: "limited",
           loading: false,
           expanded: true,
         },
@@ -143,6 +152,7 @@ export function CounterpartiesClient() {
         method: "PATCH",
         body: JSON.stringify({ visibility }),
       });
+      void loadOrgInvites(orgId);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ошибка");
       // Откатываем UI к предыдущему значению — перечитаем список.
@@ -154,6 +164,51 @@ export function CounterpartiesClient() {
       } catch {
         // ignore
       }
+    }
+  }
+
+  async function setRepresentativeAccess(
+    orgId: string,
+    userId: string,
+    mode: "inherit" | HolderFinanceVisibility,
+  ) {
+    const visibility: "inherit" | "limited" | "full" =
+      mode === "inherit" ? "inherit" : mode;
+    try {
+      const res = await v1Fetch<{
+        id: string;
+        holderFinanceOverride: HolderFinanceVisibility | null;
+        effectiveHolderFinance: HolderFinanceVisibility;
+        email: string;
+        displayName: string | null;
+      }>(
+        `/organizations/${orgId}/holder-representatives/${userId}/visibility`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ visibility }),
+        },
+      );
+      setState((s) => {
+        const cur = s[orgId];
+        if (!cur) return s;
+        return {
+          ...s,
+          [orgId]: {
+            ...cur,
+            users: cur.users.map((u) =>
+              u.id === res.id
+                ? {
+                    ...u,
+                    holderFinanceOverride: res.holderFinanceOverride,
+                    effectiveHolderFinance: res.effectiveHolderFinance,
+                  }
+                : u,
+            ),
+          },
+        };
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка");
     }
   }
 
@@ -202,6 +257,9 @@ export function CounterpartiesClient() {
               onToggle={() => toggleOrg(org.id)}
               onInvited={() => void loadOrgInvites(org.id)}
               onVisibilityChange={(v) => void setVisibility(org.id, v)}
+              onRepresentativeAccessChange={(userId, mode) =>
+                void setRepresentativeAccess(org.id, userId, mode)
+              }
             />
           ))}
         </div>
@@ -216,12 +274,17 @@ function OrgRow({
   onToggle,
   onInvited,
   onVisibilityChange,
+  onRepresentativeAccessChange,
 }: {
   org: Organization;
   state: OrgState | undefined;
   onToggle: () => void;
   onInvited: () => void;
   onVisibilityChange: (visibility: HolderFinanceVisibility) => void;
+  onRepresentativeAccessChange: (
+    userId: string,
+    mode: "inherit" | HolderFinanceVisibility,
+  ) => void;
 }) {
   const [showInvite, setShowInvite] = useState(false);
   const activeUsers = state?.users.length ?? null;
@@ -285,27 +348,71 @@ function OrgRow({
               {state.users.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Никто ещё не подключён.</p>
               ) : (
-                <ul className="space-y-1.5 text-sm">
-                  {state.users.map((u) => (
+                <ul className="space-y-2 text-sm">
+                  {state.users.map((u) => {
+                    const orgDef =
+                      state.orgHolderFinanceVisibility === "full"
+                        ? "полный доступ"
+                        : "ограниченно (без сумм)";
+                    return (
                     <li
                       key={u.id}
-                      className="flex items-center justify-between rounded-md bg-muted/30 px-3 py-2"
+                      className="flex flex-col gap-2 rounded-md bg-muted/30 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
                     >
-                      <span>
+                      <div className="min-w-0">
                         <span className="font-medium">
                           {u.displayName ?? u.email}
                         </span>
-                        <span className="ml-2 text-xs text-muted-foreground">
+                        <span className="ml-2 text-xs text-muted-foreground break-all">
                           {u.email}
                         </span>
-                      </span>
-                      <span className="text-xs text-muted-foreground">
+                        <p className="mt-0.5 text-[10px] text-muted-foreground sm:hidden">
+                          {u.lastLoginAt
+                            ? `Заходил ${new Date(u.lastLoginAt).toLocaleDateString("ru-RU")}`
+                            : "Ещё не заходил"}
+                        </p>
+                      </div>
+                      <div className="flex flex-col gap-1 sm:items-end sm:shrink-0">
+                        <label className="text-[10px] font-medium text-muted-foreground">
+                          Видимость финансов
+                        </label>
+                        <select
+                          value={
+                            u.holderFinanceOverride === null
+                              ? "inherit"
+                              : u.holderFinanceOverride
+                          }
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            if (v === "inherit") {
+                              onRepresentativeAccessChange(u.id, "inherit");
+                            } else {
+                              onRepresentativeAccessChange(
+                                u.id,
+                                v as HolderFinanceVisibility,
+                              );
+                            }
+                          }}
+                          className="w-full min-w-0 max-w-xs rounded-md border border-border/60 bg-background px-2 py-1.5 text-xs sm:w-auto sm:min-w-[220px]"
+                        >
+                          <option value="inherit">Как у компании — {orgDef}</option>
+                          <option value="limited">Только метаданные (без сумм)</option>
+                          <option value="full">Полный доступ (суммы и выплаты)</option>
+                        </select>
+                        <p className="text-[10px] text-muted-foreground">
+                          Сейчас:{" "}
+                          {u.effectiveHolderFinance === "full" ? "полный" : "без сумм"}
+                          {u.holderFinanceOverride ? " (индивидуально)" : " (как у компании)"}
+                        </p>
+                      </div>
+                      <span className="hidden text-xs text-muted-foreground sm:block sm:min-w-[100px] sm:text-right">
                         {u.lastLoginAt
                           ? `Заходил ${new Date(u.lastLoginAt).toLocaleDateString("ru-RU")}`
                           : "Не заходил"}
                       </span>
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               )}
 

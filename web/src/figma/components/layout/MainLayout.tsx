@@ -37,7 +37,7 @@ const navItems = [
 ];
 
 function navClassName(active: boolean) {
-  return `flex shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 py-1 text-[11px] font-medium transition-all duration-200 sm:gap-1.5 sm:px-2 sm:py-1.5 sm:text-xs md:text-sm ${
+  return `flex min-h-[1.75rem] shrink-0 items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium leading-none transition-all duration-200 sm:min-h-8 sm:gap-1 sm:px-2 sm:py-1 sm:text-[11px] ${
     active
       ? "bg-white/20 text-white shadow-sm"
       : "text-white/80 hover:bg-white/10 hover:text-white"
@@ -115,52 +115,24 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
       {/* Header */}
       <header className="border-b bg-primary text-primary-foreground shadow-md relative z-10">
-        <div className="px-8 py-4">
-          <div className="grid w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:gap-3">
+        <div className="px-3 py-2 sm:px-5 sm:py-2.5 md:px-6">
+          {/* Строка 1: логотип и служебные кнопки; навигация — отдельной полосой на всю ширину, без горизонтального скролла */}
+          <div className="mb-1.5 flex w-full min-w-0 items-center justify-between gap-2 sm:mb-2">
             <Link
               href="/"
-              className="flex shrink-0 items-center justify-self-start rounded-lg border border-white/30 bg-white/95 px-2.5 py-1 shadow-sm transition-colors hover:bg-white sm:px-3 sm:py-1.5"
+              className="flex min-w-0 max-w-[min(200px,42vw)] shrink items-center justify-start rounded-lg border border-white/30 bg-white/95 px-2 py-0.5 shadow-sm transition-colors hover:bg-white sm:max-w-[240px] sm:px-2.5 sm:py-1"
             >
               <Image
                 src="/brand/growix-logo.png"
                 alt="GROWIX CONTENT GROUP"
                 width={220}
                 height={62}
-                className="h-8 w-auto object-contain object-left sm:h-9"
+                className="h-7 w-auto object-contain object-left sm:h-8"
                 priority
               />
             </Link>
 
-            {/* Разделы строго по центру свободного пространства между логотипом и пользователем */}
-            <div className="flex min-w-0 justify-center justify-self-stretch">
-              <nav
-                className="w-max max-w-full overflow-x-auto overflow-y-hidden py-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-                aria-label="Разделы"
-              >
-                <div className="flex flex-nowrap items-center gap-0.5">
-                  {navItems.map((item) => {
-                    const Icon = item.icon;
-                    const active = isNavActive(pathname, item.path);
-                    return (
-                      <Link
-                        key={item.path}
-                        href={item.path}
-                        className={navClassName(active)}
-                      >
-                        <Icon
-                          className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4"
-                          strokeWidth={2}
-                        />
-                        <span>{item.label}</span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </nav>
-            </div>
-
-            {/* Компактный блок пользователя */}
-            <div className="flex shrink-0 items-center justify-self-end gap-0.5 border-l border-white/25 pl-1.5 sm:gap-1 sm:pl-2 md:pl-3">
+            <div className="flex min-w-0 shrink-0 items-center gap-0.5 sm:gap-1 md:border-l md:border-white/25 md:pl-2 lg:pl-3">
               <button
                 type="button"
                 className="relative rounded p-1 text-white/80 transition-colors hover:bg-white/10 hover:text-white sm:p-1.5"
@@ -204,11 +176,36 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
               </button>
             </div>
           </div>
+
+          <nav
+            className="w-full min-w-0"
+            aria-label="Разделы"
+          >
+            <div className="flex w-full min-w-0 flex-wrap items-center justify-center gap-x-0.5 gap-y-1 sm:gap-x-1 sm:gap-y-1.5">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const active = isNavActive(pathname, item.path);
+                return (
+                  <Link
+                    key={item.path}
+                    href={item.path}
+                    className={navClassName(active)}
+                  >
+                    <Icon
+                      className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5"
+                      strokeWidth={2}
+                    />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </nav>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto px-8 py-6">
+      <main className="flex-1 overflow-auto px-3 py-4 sm:px-5 sm:py-5 md:px-8 md:py-6">
         <div className="max-w-[1600px] mx-auto">{children}</div>
       </main>
     </div>
