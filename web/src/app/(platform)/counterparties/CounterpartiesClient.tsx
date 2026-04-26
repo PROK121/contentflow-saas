@@ -568,6 +568,10 @@ function InviteForm({
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [issuedLink, setIssuedLink] = useState<string | null>(null);
+  const [emailStatus, setEmailStatus] = useState<{
+    delivered: boolean;
+    mode: "smtp" | "console" | "skipped";
+  } | null>(null);
   const [copied, setCopied] = useState(false);
 
   async function submit() {
@@ -578,6 +582,7 @@ function InviteForm({
         inviteId: string;
         rawToken: string;
         expiresAt: string;
+        email?: { delivered: boolean; mode: "smtp" | "console" | "skipped" };
       }>("/auth/holder/invites", {
         method: "POST",
         body: JSON.stringify({
@@ -590,6 +595,7 @@ function InviteForm({
         typeof window !== "undefined" ? window.location.origin : "";
       const url = `${origin}/holder/accept?token=${encodeURIComponent(res.rawToken)}`;
       setIssuedLink(url);
+      setEmailStatus(res.email ?? { delivered: false, mode: "console" });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ошибка");
     } finally {
@@ -598,22 +604,42 @@ function InviteForm({
   }
 
   if (issuedLink) {
+    const delivered = emailStatus?.delivered === true;
     return (
-      <div className="mt-5 space-y-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-        <p className="text-sm font-medium text-emerald-900">
-          Ссылка-приглашение готова
+      <div
+        className={`mt-5 space-y-3 rounded-lg border p-4 ${
+          delivered
+            ? "border-emerald-200 bg-emerald-50"
+            : "border-amber-200 bg-amber-50"
+        }`}
+      >
+        <p
+          className={`text-sm font-medium ${
+            delivered ? "text-emerald-900" : "text-amber-900"
+          }`}
+        >
+          {delivered
+            ? "Письмо отправлено правообладателю"
+            : "Ссылка готова — письмо не доставлено"}
         </p>
-        <p className="text-xs text-emerald-800">
-          Эта ссылка одноразовая и действует 7 дней. Скопируйте её и отправьте
-          правообладателю — после первого открытия и приёма она будет
-          погашена.
+        <p
+          className={`text-xs ${delivered ? "text-emerald-800" : "text-amber-800"}`}
+        >
+          {delivered
+            ? "Правообладателю отправлено письмо со ссылкой на приём приглашения. Ссылку ниже можно использовать как запасной канал — например, скопировать в мессенджер."
+            : emailStatus?.mode === "console"
+              ? "SMTP в API не настроен (CONSOLE-режим). Скопируйте ссылку и отправьте правообладателю в любой удобный мессенджер."
+              : "SMTP вернул ошибку — проверьте логи Render (категория EMAIL/holder-invite). А пока скопируйте ссылку и отправьте правообладателю вручную."}{" "}
+          Срок действия — 7 дней, открыть ссылку можно один раз.
         </p>
         <div className="flex items-center gap-2">
           <input
             readOnly
             value={issuedLink}
             onFocus={(e) => e.currentTarget.select()}
-            className="w-full rounded-md border border-emerald-300 bg-white px-2 py-1.5 text-xs"
+            className={`w-full rounded-md border bg-white px-2 py-1.5 text-xs ${
+              delivered ? "border-emerald-300" : "border-amber-300"
+            }`}
           />
           <button
             type="button"
@@ -626,14 +652,18 @@ function InviteForm({
                 /* clipboard not available */
               }
             }}
-            className="rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white"
+            className={`rounded-md px-3 py-1.5 text-xs font-medium text-white ${
+              delivered ? "bg-emerald-700" : "bg-amber-700"
+            }`}
           >
             {copied ? "Скопировано" : "Копировать"}
           </button>
         </div>
         <button
           type="button"
-          className="text-xs text-emerald-900 underline"
+          className={`text-xs underline ${
+            delivered ? "text-emerald-900" : "text-amber-900"
+          }`}
           onClick={() => onDone()}
         >
           Готово

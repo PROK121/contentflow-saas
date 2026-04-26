@@ -227,10 +227,44 @@ export class EmailService implements OnModuleInit {
       );
       return { ok: true, mode: 'smtp' };
     } catch (e) {
+      const errMsg = e instanceof Error ? e.message : String(e);
+      // Если override-режим попал в политику SMTP-сервера (типичные коды
+      // Gmail Relay: 550 5.7.1 / 550 5.7.0 / 553 / 535 при попытке поставить
+      // чужой envelope-from) — повторяем со служебным mailbox. Письмо всё
+      // равно дойдёт, только в From будет служебный адрес + display-name.
+      if (useOverride && isLikelySenderRejection(errMsg)) {
+        this.logger.warn(
+          `[EMAIL/${input.category}] override rejected (${errMsg}) — retrying with service mailbox`,
+        );
+        try {
+          await this.transporter.sendMail({
+            from: {
+              name: this.composeFromName(input.fromName),
+              address: this.fromAddress,
+            },
+            to: input.to,
+            replyTo: input.replyTo ?? input.fromAddress,
+            subject: input.subject,
+            text: input.text,
+            html: input.html,
+          });
+          this.logger.log(
+            `[EMAIL/${input.category}] sent ok (fallback) -> ${input.to} (from=${this.fromAddress})${
+              input.entityId ? ` (entity=${input.entityId})` : ''
+            }`,
+          );
+          return { ok: true, mode: 'smtp' };
+        } catch (e2) {
+          this.logger.error(
+            `[EMAIL/${input.category}] FAILED (fallback) -> ${input.to}: ${
+              e2 instanceof Error ? e2.message : String(e2)
+            }`,
+          );
+          return { ok: false, mode: 'smtp' };
+        }
+      }
       this.logger.error(
-        `[EMAIL/${input.category}] FAILED -> ${input.to}: ${
-          e instanceof Error ? e.message : String(e)
-        }`,
+        `[EMAIL/${input.category}] FAILED -> ${input.to}: ${errMsg}`,
       );
       return { ok: false, mode: 'smtp' };
     }
@@ -322,4 +356,22 @@ function isLikelyEmail(s: string): boolean {
   if (!s) return false;
   const trimmed = s.trim();
   return /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(trimmed);
+}
+
+/// Распознаёт SMTP-ошибки, связанные с подменой From: relay-policy reject,
+/// «sender not allowed», auth misalignment. На таких ошибках имеет смысл
+/// сделать retry со служебным mailbox.
+function isLikelySenderRejection(msg: string): boolean {
+  const m = msg.toLowerCase();
+  return (
+    m.includes('5.7.1') ||
+    m.includes('5.7.0') ||
+    m.includes('not allowed') ||
+    m.includes('sender mismatch') ||
+    m.includes('sender address rejected') ||
+    m.includes('does not match authenticated user') ||
+    m.includes('domain of sender address') ||
+    m.includes('mail from address must match') ||
+    /^5\d\d\b/.test(m) && m.includes('from')
+  );
 }

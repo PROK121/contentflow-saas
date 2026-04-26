@@ -46,14 +46,14 @@ export class HolderAuthController {
     if (!me) throw new BadRequestException('Auth required');
     const result = await this.auth.createInvite(me.id, me.role, dto);
 
-    // Отправляем приглашение по email best-effort. Если SMTP не настроен,
-    // письмо попадёт в логи (см. EmailService console-режим), а менеджер
-    // дополнительно получает `acceptUrl` в ответе и может прислать ссылку
-    // вручную (мессенджер/Slack).
+    // Отправляем приглашение по email и ждём результат: фронт показывает
+    // менеджеру реальный статус («доставлено» / «не отправлено, скопируйте
+    // ссылку вручную»). EmailService не бросает — даже при сбое SMTP мы
+    // вернём 201 с готовой acceptUrl, и менеджер сможет переслать её сам.
     const acceptUrl = this.email.buildWebUrl(
       `/holder/accept?token=${encodeURIComponent(result.rawToken)}`,
     );
-    void this.email.sendTemplated({
+    const emailResult = await this.email.sendTemplated({
       to: dto.email,
       category: 'holder-invite',
       subject: 'Приглашение в кабинет правообладателя GROWIX',
@@ -78,7 +78,14 @@ export class HolderAuthController {
     // Возвращаем сырой токен ровно один раз — клиент должен либо сразу
     // использовать его (отправить письмо), либо показать менеджеру для
     // ручной отправки. В БД хранится только sha256-хеш.
-    return { ...result, acceptUrl };
+    return {
+      ...result,
+      acceptUrl,
+      email: {
+        delivered: emailResult.ok && emailResult.mode === 'smtp',
+        mode: emailResult.mode,
+      },
+    };
   }
 
   /// Менеджерский список инвайтов и активных правообладателей по организации.
