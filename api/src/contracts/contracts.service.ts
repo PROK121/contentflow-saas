@@ -13,12 +13,13 @@ import {
 } from '@prisma/client';
 import { createHash } from 'crypto';
 import { createReadStream, createWriteStream, existsSync } from 'fs';
-import { mkdir } from 'fs/promises';
+import { mkdir, writeFile } from 'fs/promises';
 import * as path from 'path';
 import PDFDocument = require('pdfkit');
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { Decimal } from '@prisma/client/runtime/library';
+import { renderKinopoiskContractPdfs } from './platform-contract-template.engine';
 
 function contractsUploadRoot(): string {
   return process.env.UPLOAD_DIR ?? path.join(process.cwd(), 'uploads');
@@ -193,7 +194,18 @@ export class ContractsService {
 
     const deals = await this.prisma.deal.findMany({
       where: { id: { in: dealIds } },
-      include: { catalogItems: true },
+      include: {
+        catalogItems: {
+          include: {
+            catalogItem: {
+              select: {
+                title: true,
+                rightsHolder: { select: { legalName: true } },
+              },
+            },
+          },
+        },
+      },
     });
     if (deals.length === 0) throw new NotFoundException('Deal not found');
     if (deals.length !== dealIds.length) {
@@ -254,6 +266,36 @@ export class ContractsService {
     });
 
     const number = `CF-${Date.now()}`;
+    const amountKztLabel = `${new Decimal(String(amountTotal || 0)).toFixed(2)} KZT`;
+    const allCatalogTitles = deals
+      .flatMap((d) => d.catalogItems.map((l) => l.catalogItem?.title ?? ''))
+      .filter(Boolean);
+    const contentTitle = [...new Set(allCatalogTitles)].join(', ') || primaryDeal.title;
+    const licensorName =
+      deals
+        .flatMap((d) =>
+          d.catalogItems.map((l) => l.catalogItem?.rightsHolder?.legalName ?? ''),
+        )
+        .find((v) => v.trim()) ?? 'Полное наименование компании либо ИП';
+
+    let generatedContractPdf: Buffer | null = null;
+    let generatedAppendixPdf: Buffer | null = null;
+    let v1Sha = createHash('sha256').update(`draft-${number}-v1`).digest('hex');
+    let appendixStorageKey: string | undefined;
+
+    if (templateId === 'contract-platform:kinopoisk') {
+      const { contractPdf, appendixPdf } = await renderKinopoiskContractPdfs({
+        contractNumber: number,
+        contractDate: new Date(),
+        licensorName,
+        contentTitle,
+        amountKzt: amountKztLabel,
+      });
+      generatedContractPdf = contractPdf;
+      generatedAppendixPdf = appendixPdf;
+      v1Sha = createHash('sha256').update(contractPdf).digest('hex');
+    }
+
     const contract = await this.prisma.contract.create({
       data: {
         dealId: primaryDeal.id,
@@ -263,7 +305,10 @@ export class ContractsService {
         termEndAt: termEnd,
         amount: new Decimal(String(amountTotal || 0)),
         currency: primaryDeal.currency,
-        rightsPayload,
+        rightsPayload: {
+          ...(rightsPayload as object),
+          ...(appendixStorageKey ? { appendixStorageKey } : {}),
+        },
         templateId,
         dealSnapshotFingerprint: fingerprint,
         clientCabinetSigned: false,
@@ -271,14 +316,34 @@ export class ContractsService {
       include: { deal: true },
     });
 
+    const v1StorageKey = `contracts/${contract.id}/v1.pdf`;
+    if (generatedContractPdf) {
+      const contractAbs = path.join(contractsUploadRoot(), v1StorageKey);
+      await mkdir(path.dirname(contractAbs), { recursive: true });
+      await writeFile(contractAbs, generatedContractPdf);
+    }
+    if (generatedAppendixPdf) {
+      appendixStorageKey = `contracts/${contract.id}/appendix-v1.pdf`;
+      const appendixAbs = path.join(contractsUploadRoot(), appendixStorageKey);
+      await mkdir(path.dirname(appendixAbs), { recursive: true });
+      await writeFile(appendixAbs, generatedAppendixPdf);
+      await this.prisma.contract.update({
+        where: { id: contract.id },
+        data: {
+          rightsPayload: {
+            ...(rightsPayload as object),
+            appendixStorageKey,
+          },
+        },
+      });
+    }
+
     await this.prisma.contractVersion.create({
       data: {
         contractId: contract.id,
         version: 1,
-        storageKey: `contracts/${contract.id}/v1.pdf`,
-        sha256: createHash('sha256')
-          .update(`draft-${contract.id}-v1`)
-          .digest('hex'),
+        storageKey: v1StorageKey,
+        sha256: v1Sha,
         templateId,
       },
     });
