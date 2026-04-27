@@ -1,6 +1,6 @@
 import { execFile } from 'child_process';
 import { existsSync } from 'fs';
-import { mkdtemp, readFile, rm, writeFile } from 'fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import * as path from 'path';
 import { promisify } from 'util';
@@ -30,13 +30,39 @@ export async function convertDocxBufferToPdf(
   const dir = await mkdtemp(path.join(tmpdir(), 'cf-offer-'));
   const docxPath = path.join(dir, 'offer.docx');
   const pdfPath = path.join(dir, 'offer.pdf');
+  const loProfileDir = path.join(dir, 'lo-profile');
+  const homeDir = path.join(dir, 'home');
+  const cacheDir = path.join(homeDir, '.cache');
+
+  const profileUri =
+    process.platform === 'win32'
+      ? `file:///${loProfileDir.replace(/\\/g, '/')}`
+      : `file://${loProfileDir}`;
 
   try {
+    await mkdir(loProfileDir, { recursive: true });
+    await mkdir(cacheDir, { recursive: true });
     await writeFile(docxPath, docxBuffer);
     await execFileAsync(
       soffice,
-      ['--headless', '--convert-to', 'pdf', '--outdir', dir, docxPath],
-      { timeout: 120_000, maxBuffer: 50 * 1024 * 1024 },
+      [
+        `-env:UserInstallation=${profileUri}`,
+        '--headless',
+        '--convert-to',
+        'pdf',
+        '--outdir',
+        dir,
+        docxPath,
+      ],
+      {
+        timeout: 120_000,
+        maxBuffer: 50 * 1024 * 1024,
+        env: {
+          ...process.env,
+          HOME: homeDir,
+          XDG_CACHE_HOME: cacheDir,
+        },
+      },
     );
     return await readFile(pdfPath);
   } catch (e) {
