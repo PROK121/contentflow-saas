@@ -184,45 +184,85 @@ export class ContractsService {
   }
 
   async createDraft(dto: CreateContractDto) {
-    const deal = await this.prisma.deal.findUnique({
-      where: { id: dto.dealId },
+    const isPlatformTemplate =
+      typeof dto.templateId === 'string' &&
+      dto.templateId.startsWith('contract-platform:');
+    const rawDealIds = [dto.dealId, ...(dto.dealIds ?? [])].filter(Boolean);
+    const dedupedDealIds = [...new Set(rawDealIds)];
+    const dealIds = isPlatformTemplate ? dedupedDealIds : [dto.dealId];
+
+    const deals = await this.prisma.deal.findMany({
+      where: { id: { in: dealIds } },
       include: { catalogItems: true },
     });
-    if (!deal) throw new NotFoundException('Deal not found');
+    if (deals.length === 0) throw new NotFoundException('Deal not found');
+    if (deals.length !== dealIds.length) {
+      throw new NotFoundException('One or more deals not found');
+    }
+    const primaryDeal = deals.find((d) => d.id === dto.dealId) ?? deals[0];
+    if (!primaryDeal) throw new NotFoundException('Deal not found');
+
+    if (isPlatformTemplate && deals.length > 1) {
+      const buyerOrgId = primaryDeal.buyerOrgId;
+      const currency = primaryDeal.currency;
+      const hasMismatch = deals.some(
+        (d) => d.buyerOrgId !== buyerOrgId || d.currency !== currency,
+      );
+      if (hasMismatch) {
+        throw new BadRequestException(
+          'Для контракта с площадкой выберите сделки одного контрагента и одной валюты',
+        );
+      }
+    }
 
     const templateId = dto.templateId ?? DEFAULT_TEMPLATE_ID;
-    const snap =
-      (deal.commercialSnapshot as Record<string, unknown> | null) ?? {};
-    const amountStr =
-      typeof snap.expectedValue === 'string' ||
-      typeof snap.expectedValue === 'number'
-        ? String(snap.expectedValue)
-        : '0';
+    const amountTotal = deals.reduce((sum, d) => {
+      const snap = (d.commercialSnapshot as Record<string, unknown> | null) ?? {};
+      const ev = snap.expectedValue;
+      const raw =
+        typeof ev === 'string' || typeof ev === 'number' ? String(ev) : '0';
+      const parsed = Number.parseFloat(raw.replace(/\s/g, '').replace(',', '.'));
+      return sum + (Number.isFinite(parsed) ? parsed : 0);
+    }, 0);
 
     const termEnd = new Date();
     termEnd.setFullYear(termEnd.getFullYear() + 1);
 
     const rightsPayload: Prisma.InputJsonValue = {
-      dealId: deal.id,
-      catalogLines: deal.catalogItems.map((l) => ({
-        catalogItemId: l.catalogItemId,
-        rightsSelection: l.rightsSelection,
-      })),
+      dealId: primaryDeal.id,
+      dealIds,
+      catalogLines: deals.flatMap((d) =>
+        d.catalogItems.map((l) => ({
+          dealId: d.id,
+          catalogItemId: l.catalogItemId,
+          rightsSelection: l.rightsSelection,
+        })),
+      ),
       templateId,
     };
 
-    const fingerprint = this.buildDealSnapshotFingerprint(deal);
+    const fingerprint = this.buildDealSnapshotFingerprint({
+      title: isPlatformTemplate
+        ? deals.map((d) => d.title).sort().join(' | ')
+        : primaryDeal.title,
+      buyerOrgId: primaryDeal.buyerOrgId,
+      currency: primaryDeal.currency,
+      commercialSnapshot: isPlatformTemplate
+        ? ({ deals: deals.map((d) => d.commercialSnapshot) } as Prisma.JsonValue)
+        : primaryDeal.commercialSnapshot,
+      catalogItems: deals.flatMap((d) => d.catalogItems),
+    });
 
     const number = `CF-${Date.now()}`;
     const contract = await this.prisma.contract.create({
       data: {
-        dealId: deal.id,
+        dealId: primaryDeal.id,
         number,
         status: ContractStatus.draft,
         territory: 'MULTI',
         termEndAt: termEnd,
-        amount: new Decimal(amountStr || '0'),
-        currency: deal.currency,
+        amount: new Decimal(String(amountTotal || 0)),
+        currency: primaryDeal.currency,
         rightsPayload,
         templateId,
         dealSnapshotFingerprint: fingerprint,

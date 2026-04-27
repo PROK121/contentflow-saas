@@ -166,6 +166,7 @@ export function Contracts() {
   );
   const [dealsOptions, setDealsOptions] = useState<DealOption[]>([]);
   const [createDealId, setCreateDealId] = useState("");
+  const [createDealIds, setCreateDealIds] = useState<string[]>([]);
   const [createBusy, setCreateBusy] = useState(false);
   const [createErr, setCreateErr] = useState<string | null>(null);
   const [dlBusyId, setDlBusyId] = useState<string | null>(null);
@@ -280,6 +281,9 @@ export function Contracts() {
     try {
       const d = await v1Fetch<DealOption[]>("/deals?limit=100");
       setDealsOptions(d);
+      if (kind === "platform") {
+        setCreateDealIds((prev) => prev.filter((id) => d.some((x) => x.id === id)));
+      }
       if (d.length) {
         setCreateDealId((prev) =>
           prev && d.some((x) => x.id === prev) ? prev : d[0].id,
@@ -294,7 +298,11 @@ export function Contracts() {
   }
 
   async function submitCreate() {
-    if (!createDealId) {
+    if (createKind === "platform" && createDealIds.length === 0) {
+      setCreateErr("Выберите хотя бы одну сделку");
+      return;
+    }
+    if (createKind === "po" && !createDealId) {
       setCreateErr("Выберите сделку");
       return;
     }
@@ -309,9 +317,15 @@ export function Contracts() {
         createKind === "po"
           ? "contract-po"
           : `contract-platform:${createPlatformKey.trim()}`;
+      const primaryDealId =
+        createKind === "platform" ? createDealIds[0] : createDealId;
       const created = await v1Fetch<{ id: string }>("/contracts", {
         method: "POST",
-        body: JSON.stringify({ dealId: createDealId, templateId }),
+        body: JSON.stringify({
+          dealId: primaryDealId,
+          dealIds: createKind === "platform" ? createDealIds : undefined,
+          templateId,
+        }),
       });
       setCreateOpen(false);
       toast.success("Контракт создан");
@@ -1010,18 +1024,59 @@ export function Contracts() {
           </p>
           <div className="space-y-2">
             <Label>{tr("crm", "contractsDealLabel")}</Label>
-            <select
-              className="w-full rounded-md border border-border/50 bg-input-background px-3 py-2 text-sm"
-              value={createDealId}
-              onChange={(e) => setCreateDealId(e.target.value)}
-            >
-              <option value="">Выберите…</option>
-              {dealsOptions.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.title} ({d.kind === "purchase" ? "покупка" : "продажа"})
-                </option>
-              ))}
-            </select>
+            {createKind === "platform" ? (
+              <div className="max-h-44 overflow-y-auto rounded-md border border-border/50 bg-input-background p-2 text-sm">
+                {dealsOptions.length === 0 ? (
+                  <p className="px-1 py-1 text-xs text-muted-foreground">
+                    Сделки не найдены
+                  </p>
+                ) : (
+                  dealsOptions.map((d) => {
+                    const checked = createDealIds.includes(d.id);
+                    return (
+                      <label
+                        key={d.id}
+                        className="flex items-center gap-2 px-1 py-1.5 text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) =>
+                            setCreateDealIds((prev) =>
+                              e.target.checked
+                                ? [...prev, d.id]
+                                : prev.filter((id) => id !== d.id),
+                            )
+                          }
+                        />
+                        <span>
+                          {d.title} ({d.kind === "purchase" ? "покупка" : "продажа"})
+                        </span>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+            ) : (
+              <select
+                className="w-full rounded-md border border-border/50 bg-input-background px-3 py-2 text-sm"
+                value={createDealId}
+                onChange={(e) => setCreateDealId(e.target.value)}
+              >
+                <option value="">Выберите…</option>
+                {dealsOptions.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.title} ({d.kind === "purchase" ? "покупка" : "продажа"})
+                  </option>
+                ))}
+              </select>
+            )}
+            {createKind === "platform" ? (
+              <p className="text-xs text-muted-foreground">
+                Можно выбрать несколько сделок. Первая выбранная будет основной
+                карточкой контракта.
+              </p>
+            ) : null}
           </div>
           {createKind === "platform" ? (
             <div className="space-y-2">
