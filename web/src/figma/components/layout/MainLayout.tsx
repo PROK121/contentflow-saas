@@ -24,51 +24,50 @@ import {
 import { BackgroundEffects } from "../BackgroundEffects";
 import { GlobalSearch } from "./GlobalSearch";
 import { CreateMenu } from "./CreateMenu";
+import { tr } from "@/lib/i18n";
 
 type NavItem = { path: string; label: string; icon: React.ComponentType<{ className?: string; strokeWidth?: number }> };
 type NavGroup = { label: string; items: NavItem[] };
 
-const navGroups: NavGroup[] = [
-  {
-    label: "Главная",
-    items: [
-      { path: "/", label: "Панель", icon: LayoutDashboard },
-    ],
-  },
-  {
-    label: "Работа",
-    items: [
-      { path: "/deals", label: "Сделки", icon: Handshake },
-      { path: "/offers", label: "Офферы", icon: FileStack },
-      { path: "/contracts", label: "Контракты", icon: FileText },
-      { path: "/tasks", label: "Задачи", icon: CheckSquare },
-    ],
-  },
-  {
-    label: "Контент",
-    items: [
-      { path: "/content", label: "Контент", icon: Film },
-      { path: "/platform-forecast", label: "Прогноз", icon: BarChart3 },
-      { path: "/grades", label: "Грейды", icon: BadgePercent },
-      { path: "/rights-base", label: "База прав", icon: BookMarked },
-    ],
-  },
-  {
-    label: "Финансы",
-    items: [
-      { path: "/payments", label: "Платежи", icon: DollarSign },
-    ],
-  },
-  {
-    label: "Партнёры",
-    items: [
-      { path: "/counterparties", label: "Контрагенты", icon: Users },
-    ],
-  },
-];
+function getNavGroups(): NavGroup[] {
+  return [
+    {
+      label: tr("appNav", "groupMain"),
+      items: [{ path: "/", label: tr("appNav", "itemDashboard"), icon: LayoutDashboard }],
+    },
+    {
+      label: tr("appNav", "groupWork"),
+      items: [
+        { path: "/deals", label: tr("appNav", "itemDeals"), icon: Handshake },
+        { path: "/offers", label: tr("appNav", "itemOffers"), icon: FileStack },
+        { path: "/contracts", label: tr("appNav", "itemContracts"), icon: FileText },
+        { path: "/tasks", label: tr("appNav", "itemTasks"), icon: CheckSquare },
+      ],
+    },
+    {
+      label: tr("appNav", "groupContent"),
+      items: [
+        { path: "/content", label: tr("appNav", "itemContent"), icon: Film },
+        { path: "/platform-forecast", label: tr("appNav", "itemForecast"), icon: BarChart3 },
+        { path: "/grades", label: tr("appNav", "itemGrades"), icon: BadgePercent },
+        { path: "/rights-base", label: tr("appNav", "itemRightsBase"), icon: BookMarked },
+      ],
+    },
+    {
+      label: tr("appNav", "groupFinance"),
+      items: [{ path: "/payments", label: tr("appNav", "itemPayments"), icon: DollarSign }],
+    },
+    {
+      label: tr("appNav", "groupPartners"),
+      items: [
+        { path: "/counterparties", label: tr("appNav", "itemCounterparties"), icon: Users },
+      ],
+    },
+  ];
+}
 
 function navClassName(active: boolean) {
-  return `flex min-h-[1.75rem] items-center justify-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium leading-tight transition-all duration-200 sm:min-h-8 sm:gap-1 sm:px-2 sm:py-1 sm:text-[11px] xl:min-h-9 xl:px-1.5 xl:text-xs ${
+  return `flex min-h-8 items-center justify-center gap-1 rounded px-2 py-1 text-xs font-medium leading-tight transition-all duration-200 sm:min-h-9 sm:px-2.5 sm:text-sm xl:min-h-9 xl:px-2 xl:text-sm ${
     active
       ? "bg-white/20 text-white shadow-sm"
       : "text-white/80 hover:bg-white/10 hover:text-white"
@@ -102,13 +101,13 @@ function userInitials(displayName: string | null, email: string): string {
 function roleLabel(role: string): string {
   switch (role) {
     case "admin":
-      return "Администратор";
+      return tr("appNav", "roleAdmin");
     case "manager":
-      return "Менеджер";
+      return tr("appNav", "roleManager");
     case "rights_owner":
-      return "Правообладатель";
+      return tr("appNav", "roleRightsOwner");
     case "client":
-      return "Клиент";
+      return tr("appNav", "roleClient");
     default:
       return role;
   }
@@ -118,6 +117,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [me, setMe] = useState<MeUser | null | undefined>(undefined);
+  const navGroups = getNavGroups();
 
   useEffect(() => {
     let cancelled = false;
@@ -163,7 +163,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
               />
             </Link>
 
-            {/* Search + Create — fill the empty space */}
+            {/* Поиск + создание — заполняют центр шапки */}
             <div className="flex flex-1 min-w-0 items-center gap-2 px-2">
               <GlobalSearch />
               <CreateMenu />
@@ -173,7 +173,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
               <button
                 type="button"
                 className="relative rounded p-1 text-white/80 transition-colors hover:bg-white/10 hover:text-white sm:p-1.5"
-                aria-label="Уведомления"
+                aria-label={tr("appNav", "notifications")}
               >
                 <Bell className="h-4 w-4 sm:h-[18px] sm:w-[18px]" strokeWidth={2} />
                 <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-accent sm:right-1 sm:top-1 sm:h-2 sm:w-2" />
@@ -181,7 +181,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
               <button
                 type="button"
                 className="rounded p-1 text-white/80 transition-colors hover:bg-white/10 hover:text-white sm:p-1.5"
-                aria-label="Настройки"
+                aria-label={tr("appNav", "settings")}
               >
                 <Settings className="h-4 w-4 sm:h-[18px] sm:w-[18px]" strokeWidth={2} />
               </button>
@@ -209,7 +209,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                 onClick={() => void logout()}
                 className="shrink-0 rounded px-1 py-0.5 text-[10px] font-medium text-white/90 hover:bg-white/10 hover:text-white sm:px-1.5 sm:py-1 sm:text-xs"
               >
-                Выйти
+                {tr("appNav", "logout")}
               </button>
             </div>
           </div>

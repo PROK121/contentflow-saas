@@ -3,6 +3,8 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Bell, BellOff, Loader2, Save, UserCircle } from "lucide-react";
 import { v1Fetch } from "@/lib/v1-client";
+import { ErrorState, LoadingState } from "@/components/PageState";
+import { tr } from "@/lib/i18n";
 
 interface HolderMe {
   user: {
@@ -99,21 +101,17 @@ export default function HolderProfilePage() {
       <header className="mb-6 flex items-center gap-3">
         <UserCircle className="size-6 text-primary" />
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Профиль</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{tr("holder", "profileTitle")}</h1>
           <p className="text-sm text-muted-foreground">
             Контакт для менеджера и настройки уведомлений
           </p>
         </div>
       </header>
 
-      {error ? (
-        <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive">
-          {error}
-        </div>
-      ) : null}
+      {error ? <ErrorState message={error} /> : null}
 
       {!data ? (
-        <p className="text-sm text-muted-foreground">Загрузка…</p>
+        <LoadingState label={tr("holder", "loadingData")} />
       ) : (
         <form
           onSubmit={onSubmit}

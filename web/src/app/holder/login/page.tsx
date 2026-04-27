@@ -1,9 +1,10 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { Mail } from "lucide-react";
+import { ErrorState } from "@/components/PageState";
+import { HolderAuthLayout } from "@/components/holder/HolderAuthLayout";
+import { tr } from "@/lib/i18n";
 
 type Mode = "magic" | "password";
 
@@ -61,122 +62,98 @@ export default function HolderLoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-10">
-      <div className="w-full max-w-md rounded-xl border border-border/40 bg-card p-8 shadow-sm">
-        <div className="mb-6 flex justify-center">
-          <Link
-            href="/holder"
-            className="rounded-lg border border-black/10 bg-white px-3 py-2 shadow-sm"
-          >
-            <Image
-              src="/brand/growix-logo.png"
-              alt="GROWIX"
-              width={220}
-              height={62}
-              className="h-9 w-auto object-contain"
-              priority
-            />
-          </Link>
-        </div>
-        <h1 className="mb-1 text-center text-xl font-semibold">
-          Кабинет правообладателя
-        </h1>
-        <p className="mb-6 text-center text-sm text-muted-foreground">
-          Получите ссылку для входа на email или войдите по паролю
-        </p>
+    <HolderAuthLayout
+      title={tr("holderAuth", "cabinetTitle")}
+      subtitle={tr("holderAuth", "cabinetSubtitle")}
+      maxWidth="max-w-md"
+    >
+      <div className="mb-4 grid grid-cols-2 gap-2 rounded-lg bg-muted/50 p-1 text-sm">
+        <button
+          type="button"
+          onClick={() => setMode("magic")}
+          className={`rounded-md px-3 py-2 transition-colors ${
+            mode === "magic"
+              ? "bg-card font-medium text-foreground shadow-sm"
+              : "text-muted-foreground"
+          }`}
+        >
+          {tr("holderAuth", "loginByLink")}
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("password")}
+          className={`rounded-md px-3 py-2 transition-colors ${
+            mode === "password"
+              ? "bg-card font-medium text-foreground shadow-sm"
+              : "text-muted-foreground"
+          }`}
+        >
+          {tr("holderAuth", "loginByPassword")}
+        </button>
+      </div>
 
-        <div className="mb-4 grid grid-cols-2 gap-2 rounded-lg bg-muted/50 p-1 text-sm">
-          <button
-            type="button"
-            onClick={() => setMode("magic")}
-            className={`rounded-md px-3 py-2 transition-colors ${
-              mode === "magic"
-                ? "bg-card font-medium text-foreground shadow-sm"
-                : "text-muted-foreground"
-            }`}
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <div>
+          <label
+            htmlFor="email"
+            className="mb-1 block text-sm font-medium text-foreground"
           >
-            По ссылке
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("password")}
-            className={`rounded-md px-3 py-2 transition-colors ${
-              mode === "password"
-                ? "bg-card font-medium text-foreground shadow-sm"
-                : "text-muted-foreground"
-            }`}
-          >
-            По паролю
-          </button>
+            Email
+          </label>
+          <input
+            id="email"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(ev) => setEmail(ev.target.value)}
+            className="w-full rounded-lg border border-border/50 bg-input-background px-3 py-2 text-sm outline-none focus-visible:border-ring/80 focus-visible:ring-2 focus-visible:ring-ring/25"
+          />
         </div>
-
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        {mode === "password" ? (
           <div>
             <label
-              htmlFor="email"
+              htmlFor="password"
               className="mb-1 block text-sm font-medium text-foreground"
             >
-              Email
+              Пароль
             </label>
             <input
-              id="email"
-              type="email"
-              autoComplete="email"
+              id="password"
+              type="password"
+              autoComplete="current-password"
               required
-              value={email}
-              onChange={(ev) => setEmail(ev.target.value)}
+              value={password}
+              onChange={(ev) => setPassword(ev.target.value)}
               className="w-full rounded-lg border border-border/50 bg-input-background px-3 py-2 text-sm outline-none focus-visible:border-ring/80 focus-visible:ring-2 focus-visible:ring-ring/25"
             />
           </div>
-          {mode === "password" ? (
-            <div>
-              <label
-                htmlFor="password"
-                className="mb-1 block text-sm font-medium text-foreground"
-              >
-                Пароль
-              </label>
-              <input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(ev) => setPassword(ev.target.value)}
-                className="w-full rounded-lg border border-border/50 bg-input-background px-3 py-2 text-sm outline-none focus-visible:border-ring/80 focus-visible:ring-2 focus-visible:ring-ring/25"
-              />
-            </div>
-          ) : null}
+        ) : null}
 
-          {error ? (
-            <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {error}
-            </p>
-          ) : null}
-          {info ? (
-            <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-              {info}
-            </p>
-          ) : null}
+        {error ? <ErrorState message={error} /> : null}
+        {info ? (
+          <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+            {info}
+          </p>
+        ) : null}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow transition-opacity disabled:opacity-60"
-          >
-            {mode === "magic" ? <Mail className="size-4" /> : null}
-            {loading
-              ? "Отправка…"
-              : mode === "magic"
-                ? "Прислать ссылку"
-                : "Войти"}
-          </button>
-        </form>
+        <button
+          type="submit"
+          disabled={loading}
+          className="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow transition-opacity disabled:opacity-60"
+        >
+          {mode === "magic" ? <Mail className="size-4" /> : null}
+          {loading
+            ? tr("holderAuth", "sending")
+            : mode === "magic"
+              ? tr("holderAuth", "sendLink")
+              : tr("holderAuth", "signIn")}
+        </button>
+      </form>
 
-        <p className="mt-6 text-center text-xs text-muted-foreground">
-          Если у вас есть приглашение от менеджера, перейдите по ссылке из письма.
-        </p>
-      </div>
-    </div>
+      <p className="mt-6 text-center text-xs text-muted-foreground">
+        {tr("holderAuth", "inviteHelp")}
+      </p>
+    </HolderAuthLayout>
   );
 }

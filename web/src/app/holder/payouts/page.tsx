@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Eye, Wallet } from "lucide-react";
 import { v1Fetch } from "@/lib/v1-client";
+import { EmptyState, ErrorState, LoadingState } from "@/components/PageState";
+import { tr } from "@/lib/i18n";
 
 interface PayoutLimited {
   id: string;
@@ -36,14 +38,17 @@ export default function HolderPayoutsPage() {
   const [data, setData] = useState<PayoutResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  async function reload() {
+    try {
+      setError(null);
+      setData(await v1Fetch<PayoutResponse>("/holder/payouts"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка");
+    }
+  }
+
   useEffect(() => {
-    (async () => {
-      try {
-        setData(await v1Fetch<PayoutResponse>("/holder/payouts"));
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Ошибка");
-      }
-    })();
+    void reload();
   }, []);
 
   const isLimited = data?.financeVisibility === "limited";
@@ -51,17 +56,13 @@ export default function HolderPayoutsPage() {
   return (
     <div className="mx-auto max-w-5xl">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Выплаты</h1>
+        <h1 className="text-2xl font-semibold">{tr("holder", "payoutsTitle")}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           История начислений по контрактам, в которых вы — правообладатель.
         </p>
       </div>
 
-      {error ? (
-        <div className="mb-6 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
-      ) : null}
+      {error ? <ErrorState message={error} onRetry={() => void reload()} /> : null}
 
       {isLimited ? (
         <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -75,15 +76,16 @@ export default function HolderPayoutsPage() {
       ) : null}
 
       {data === null ? (
-        <p className="text-sm text-muted-foreground">Загрузка…</p>
+        <LoadingState label={tr("holder", "loadingData")} />
       ) : data.items.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border/60 bg-card p-10 text-center">
-          <Wallet className="mx-auto mb-3 size-10 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Выплат пока нет.</p>
-        </div>
+        <EmptyState
+          icon={<Wallet className="size-10" />}
+          title={tr("holder", "noPayouts")}
+        />
       ) : (
         <div className="overflow-hidden rounded-xl border border-border/40 bg-card">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-sm">
             <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 text-left">Дата</th>
@@ -138,6 +140,7 @@ export default function HolderPayoutsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

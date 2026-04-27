@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Film, Handshake, Wallet, FileText, ArrowUpRight } from "lucide-react";
 import { v1Fetch } from "@/lib/v1-client";
+import { ErrorState, LoadingState } from "@/components/PageState";
+import { tr } from "@/lib/i18n";
 
 interface Dashboard {
   financeVisibility: "limited" | "full";
@@ -30,10 +32,21 @@ export default function HolderDashboardPage() {
   const [data, setData] = useState<Dashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  async function reload() {
+    try {
+      setError(null);
+      const d = await v1Fetch<Dashboard>("/holder/dashboard");
+      setData(d);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка");
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
+        setError(null);
         const d = await v1Fetch<Dashboard>("/holder/dashboard");
         if (!cancelled) setData(d);
       } catch (e) {
@@ -48,17 +61,15 @@ export default function HolderDashboardPage() {
   return (
     <div className="mx-auto max-w-5xl">
       <div className="mb-8">
-        <h1 className="text-2xl font-semibold">Главная</h1>
+        <h1 className="text-2xl font-semibold">{tr("holder", "dashboardTitle")}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Краткий статус по вашим тайтлам, сделкам и выплатам.
         </p>
       </div>
 
-      {error ? (
-        <div className="mb-6 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
-      ) : null}
+      {error ? <ErrorState message={error} onRetry={() => void reload()} /> : null}
+
+      {!data ? <LoadingState label={tr("holder", "loadingData")} /> : null}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card

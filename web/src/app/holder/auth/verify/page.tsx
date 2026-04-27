@@ -2,6 +2,9 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
+import { ErrorState, LoadingState } from "@/components/PageState";
+import { HolderAuthLayout } from "@/components/holder/HolderAuthLayout";
+import { tr } from "@/lib/i18n";
 
 function MagicLinkVerifyInner() {
   const params = useSearchParams();
@@ -54,35 +57,42 @@ function MagicLinkVerifyInner() {
   }, [params, router]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
-      <div className="w-full max-w-md rounded-xl border border-border/40 bg-card p-8 shadow-sm text-center">
+    <HolderAuthLayout
+      title={
+        error
+          ? tr("holderAuth", "invalidLinkTitle")
+          : tr("holderAuth", "enteringTitle")
+      }
+      maxWidth="max-w-md"
+    >
+      <div className="text-center">
         {error ? (
           <>
-            <h1 className="mb-2 text-lg font-semibold">Ссылка недействительна</h1>
-            <p className="mb-4 text-sm text-muted-foreground">{error}</p>
+            <ErrorState message={error} />
             <a
               className="text-sm text-primary underline"
               href="/holder/login"
             >
-              Запросить новую ссылку
+              {tr("holderAuth", "requestNewLink")}
             </a>
           </>
         ) : (
-          <>
-            <h1 className="mb-2 text-lg font-semibold">Входим…</h1>
-            <p className="text-sm text-muted-foreground">
-              Проверяем ссылку и подписываем сессию. Не закрывайте вкладку.
-            </p>
-          </>
+          <LoadingState label={tr("holderAuth", "enteringDescription")} />
         )}
       </div>
-    </div>
+    </HolderAuthLayout>
   );
 }
 
 export default function MagicLinkVerifyPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center">Загрузка…</div>}>
+    <Suspense
+      fallback={
+        <HolderAuthLayout title={tr("holderAuth", "loadingTitle")} maxWidth="max-w-md">
+          <LoadingState />
+        </HolderAuthLayout>
+      }
+    >
       <MagicLinkVerifyInner />
     </Suspense>
   );

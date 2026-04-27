@@ -4,6 +4,8 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Lightbulb } from "lucide-react";
 import { v1Fetch } from "@/lib/v1-client";
+import { ErrorState } from "@/components/PageState";
+import { tr } from "@/lib/i18n";
 
 const KIND_OPTIONS: { value: string; label: string }[] = [
   { value: "movie", label: "Фильм" },
@@ -111,7 +113,7 @@ export default function HolderProposePage() {
           <Lightbulb className="size-5" />
         </div>
         <div>
-          <h1 className="text-2xl font-semibold">Предложить тайтл</h1>
+          <h1 className="text-2xl font-semibold">{tr("holder", "proposeTitle")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Расскажите о фильме, сериале или другом контенте, который вы хотите
             добавить в каталог GROWIX. Менеджер свяжется с вами в течение 5
@@ -120,11 +122,7 @@ export default function HolderProposePage() {
         </div>
       </div>
 
-      {error ? (
-        <div className="mb-4 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
-      ) : null}
+      {error ? <ErrorState message={error} /> : null}
 
       <form onSubmit={onSubmit} className="space-y-4 rounded-xl border border-border/40 bg-card p-6">
         <Field

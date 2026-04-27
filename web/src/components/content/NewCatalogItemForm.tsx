@@ -116,6 +116,7 @@ export function NewCatalogItemForm(props: NewCatalogItemFormProps = {}) {
       }),
     [title, slug, assetType, rightsHolderOrgId, terms, runtime, episodeCount],
   );
+  const [step, setStep] = useState<1 | 2 | 3>(1);
 
   async function createInlineRightsHolder() {
     setCreatingHolder(true);
@@ -234,6 +235,50 @@ export function NewCatalogItemForm(props: NewCatalogItemFormProps = {}) {
   }
 
   const isEmbedded = layout === "embedded";
+  const stepError = useMemo(() => {
+    if (step === 1) {
+      if (!title.trim()) return "Введите название";
+      if (!slug.trim()) return "Введите slug";
+      if (!assetType.trim()) return "Выберите тип актива";
+      if (!runtime.trim()) return "Укажите хронометраж";
+      if (showSeriesFields && !episodeCount.trim()) {
+        return "Для сериалов укажите количество серий";
+      }
+      return null;
+    }
+    if (step === 2) {
+      if (!rightsHolderOrgId) return "Выберите правообладателя";
+      return null;
+    }
+    if (step === 3) {
+      return validationError;
+    }
+    return null;
+  }, [
+    step,
+    title,
+    slug,
+    assetType,
+    runtime,
+    showSeriesFields,
+    episodeCount,
+    rightsHolderOrgId,
+    validationError,
+  ]);
+
+  function nextStep() {
+    if (stepError) {
+      setErr(stepError);
+      return;
+    }
+    setErr(null);
+    setStep((prev) => (prev < 3 ? ((prev + 1) as 1 | 2 | 3) : prev));
+  }
+
+  function prevStep() {
+    setErr(null);
+    setStep((prev) => (prev > 1 ? ((prev - 1) as 1 | 2 | 3) : prev));
+  }
 
   return (
     <div
@@ -262,425 +307,365 @@ export function NewCatalogItemForm(props: NewCatalogItemFormProps = {}) {
         <p className="text-sm text-destructive whitespace-pre-wrap">{err}</p>
       )}
 
-      <div className="space-y-4 rounded-xl border border-border bg-card p-5">
-        <div>
-          <Label>Название</Label>
-          <Input
-            className="mt-1"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Например, Пакет документальных фильмов 2025"
-          />
+      <div className="rounded-xl border border-border bg-card p-5">
+        <div className="mb-4 flex items-center gap-2">
+          {[1, 2, 3].map((s) => (
+            <div key={s} className="flex items-center gap-2">
+              <div
+                className={cn(
+                  "flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold",
+                  step === s
+                    ? "bg-primary text-primary-foreground"
+                    : step > s
+                      ? "bg-emerald-600 text-white"
+                      : "bg-muted text-muted-foreground",
+                )}
+              >
+                {s}
+              </div>
+              <span className={cn("text-xs", step === s ? "text-foreground" : "text-muted-foreground")}>
+                {s === 1 ? "Основное" : s === 2 ? "Метаданные" : "Права"}
+              </span>
+              {s < 3 ? <div className="h-px w-6 bg-border" /> : null}
+            </div>
+          ))}
         </div>
-        <div className="flex flex-wrap gap-2 items-end">
-          <div className="flex-1 min-w-[200px]">
-            <Label>Slug (уникальный)</Label>
-            <Input
-              className="mt-1"
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              placeholder="doc-pack-2025"
-            />
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="mb-0.5"
-            onClick={() => setSlug(suggestCatalogSlug(title))}
-          >
-            Из названия
-          </Button>
-        </div>
-        <div>
-          <Label>Тип актива</Label>
-          <select
-            className="mt-1 w-full rounded-md border border-border/50 bg-input-background px-3 py-2 text-sm"
-            value={assetType}
-            onChange={(e) => setAssetType(e.target.value)}
-          >
-            {CATALOG_ASSET_TYPES.map((a) => (
-              <option key={a.value} value={a.value}>
-                {a.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        {showSeriesFields ? (
-          <div>
-            <Label>Количество серий</Label>
-            <Input
-              className="mt-1"
-              inputMode="numeric"
-              autoComplete="off"
-              value={episodeCount}
-              onChange={(e) => setEpisodeCount(e.target.value.replace(/\D/g, ""))}
-              placeholder="Например, 12"
-            />
-          </div>
-        ) : null}
-        <div>
-          <Label>Хронометраж</Label>
-          <p className="text-xs text-muted-foreground mt-0.5 mb-1">
-            Для всех типов: длительность выпуска или серии (как принято в
-            договоре).
-          </p>
-          <Input
-            className="mt-1"
-            value={runtime}
-            onChange={(e) => setRuntime(e.target.value)}
-            placeholder="Например: 98 мин; 45 мин/серия; 12×45 мин"
-          />
-        </div>
-        <p className="text-xs text-muted-foreground -mt-2">
-          Поля ниже сохраняются в карточке каталога и подставляются в оффер при
-          выборе этого тайтла.
-        </p>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {showSeriesFields ? (
+
+        {step === 1 ? (
+          <div className="space-y-4">
             <div>
-              <Label>Количество сезонов</Label>
+              <Label>Название</Label>
               <Input
                 className="mt-1"
-                inputMode="numeric"
-                autoComplete="off"
-                value={seasonCount}
-                onChange={(e) => setSeasonCount(e.target.value.replace(/\D/g, ""))}
-                placeholder="Например, 1"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Например, Пакет документальных фильмов 2025"
               />
             </div>
-          ) : null}
-          <div>
-            <Label>Год производства</Label>
-            <Input
-              className="mt-1"
-              value={productionYear}
-              onChange={(e) => setProductionYear(e.target.value)}
-              placeholder="2025"
-            />
-          </div>
-          <div>
-            <Label>Страна производства</Label>
-            <Input
-              className="mt-1"
-              value={countryOfProduction}
-              onChange={(e) => setCountryOfProduction(e.target.value)}
-              placeholder="Например, Казахстан"
-            />
-          </div>
-          <div>
-            <Label>Формат (текст для оффера)</Label>
-            <Input
-              className="mt-1"
-              value={contentFormatExtra}
-              onChange={(e) => setContentFormatExtra(e.target.value)}
-              placeholder="Иначе подставится тип актива из поля выше"
-            />
-          </div>
-          <div>
-            <Label>Локальное название</Label>
-            <Input
-              className="mt-1"
-              value={localTitle}
-              onChange={(e) => setLocalTitle(e.target.value)}
-              placeholder="Если пусто, будет равно оригинальному"
-            />
-          </div>
-          <div>
-            <Label>Жанр</Label>
-            <Input
-              className="mt-1"
-              value={genre}
-              onChange={(e) => setGenre(e.target.value)}
-            />
-          </div>
-          <div>
-            <Label>Возрастной рейтинг</Label>
-            <Input
-              className="mt-1"
-              value={ageRating}
-              onChange={(e) => setAgeRating(e.target.value)}
-              placeholder="Например, 16+"
-            />
-          </div>
-          <div>
-            <Label>Нужна локализация</Label>
-            <select
-              className="mt-1 w-full rounded-md border border-border/50 bg-input-background px-3 py-2 text-sm"
-              value={localizationNeeded}
-              onChange={(e) => setLocalizationNeeded(e.target.value)}
-            >
-              <option value="Да">Да</option>
-              <option value="Нет">Нет</option>
-            </select>
-          </div>
-          <div>
-            <Label>Статус муз. прав</Label>
-            <Input
-              className="mt-1"
-              value={musicRightsStatus}
-              onChange={(e) => setMusicRightsStatus(e.target.value)}
-              placeholder="Например, Подтверждён"
-            />
-          </div>
-          <div>
-            <Label>Статус цепочки прав</Label>
-            <Input className="mt-1" value="Не загружены" disabled />
-          </div>
-          {showPremiereCategoryField ? (
+            <div className="flex flex-wrap gap-2 items-end">
+              <div className="flex-1 min-w-[200px]">
+                <Label>Slug (уникальный)</Label>
+                <Input
+                  className="mt-1"
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value)}
+                  placeholder="doc-pack-2025"
+                />
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mb-0.5"
+                onClick={() => setSlug(suggestCatalogSlug(title))}
+              >
+                Из названия
+              </Button>
+            </div>
             <div>
-              <Label>Категория фильма (премьера)</Label>
+              <Label>Тип актива</Label>
               <select
                 className="mt-1 w-full rounded-md border border-border/50 bg-input-background px-3 py-2 text-sm"
-                value={premiereCategory}
-                onChange={(e) => setPremiereCategory(e.target.value)}
+                value={assetType}
+                onChange={(e) => setAssetType(e.target.value)}
               >
-                {CATALOG_PREMIERE_CATEGORIES.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
+                {CATALOG_ASSET_TYPES.map((a) => (
+                  <option key={a.value} value={a.value}>
+                    {a.label}
                   </option>
                 ))}
               </select>
             </div>
-          ) : null}
-          <div className="sm:col-span-2">
-            <Label>Кинотеатральный релиз</Label>
-            <Input
-              className="mt-1"
-              value={theatricalRelease}
-              onChange={(e) => setTheatricalRelease(e.target.value)}
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <Label>Дистрибьютор (необязательно)</Label>
-            <Input
-              className="mt-1"
-              value={distributorLine}
-              onChange={(e) => setDistributorLine(e.target.value)}
-              placeholder='По умолчанию в оффере: ТОО «Growix Content Group»'
-            />
-          </div>
-        </div>
-        <div>
-          <Label>Правообладатель</Label>
-          <select
-            className="mt-1 w-full rounded-md border border-border/50 bg-input-background px-3 py-2 text-sm"
-            value={rightsHolderOrgId}
-            onChange={(e) => setRightsHolderOrgId(e.target.value)}
-          >
-            {holders.length === 0 ? (
-              <option value="">— выберите или создайте —</option>
-            ) : null}
-            {holders.map((h) => (
-              <option key={h.id} value={h.id}>
-                {h.legalName}
-              </option>
-            ))}
-          </select>
-          {holders.length === 0 && !inlineHolderOpen && (
-            <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
-              В списке нет правообладателей — создайте организацию ниже.
-            </p>
-          )}
-          {!inlineHolderOpen ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="mt-2"
-              onClick={() => setInlineHolderOpen(true)}
-            >
-              + Новый правообладатель
-            </Button>
-          ) : (
-            <div className="mt-2 space-y-2 rounded-lg border border-border p-3">
-              <p className="text-xs text-muted-foreground">
-                Организация с типом «правообладатель» (rights_holder).
-              </p>
-              <Input
-                placeholder="Юридическое название"
-                value={newHolderName}
-                onChange={(e) => setNewHolderName(e.target.value)}
-              />
-              <Input
-                placeholder="Страна (ISO2)"
-                value={newHolderCountry}
-                onChange={(e) => setNewHolderCountry(e.target.value)}
-                maxLength={2}
-              />
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => void createInlineRightsHolder()}
-                  disabled={
-                    creatingHolder || !newHolderName.trim() || !newHolderCountry.trim()
-                  }
-                >
-                  {creatingHolder ? "Создание…" : "Создать правообладателя"}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    setInlineHolderOpen(false);
-                    setNewHolderName("");
-                    setNewHolderCountry("KZ");
-                  }}
-                >
-                  Отмена
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-        <div>
-          <Label>Постер (обложка)</Label>
-          <p className="text-xs text-muted-foreground mt-0.5 mb-2">
-            JPEG, PNG, GIF или WebP, до ~12 МБ. Отображается в каталоге и на
-            странице контента.
-          </p>
-          <Input
-            type="file"
-            accept="image/jpeg,image/png,image/gif,image/webp"
-            className="mt-1 cursor-pointer"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              setPosterFile(f ?? null);
-            }}
-          />
-          {posterPreviewUrl ? (
-            <div className="mt-3 rounded-lg border border-border overflow-hidden max-w-xs aspect-[2/3] bg-muted">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={posterPreviewUrl}
-                alt="Предпросмотр постера"
-                className="w-full h-full object-cover"
-              />
-            </div>
-          ) : null}
-          {posterFile ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="mt-2"
-              onClick={() => setPosterFile(null)}
-            >
-              Убрать файл
-            </Button>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Лицензионные сроки</h2>
-        {terms.map((term, i) => (
-          <div
-            key={i}
-            className="rounded-xl border border-border bg-card p-4 space-y-3"
-          >
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium">Строка {i + 1}</span>
-              {terms.length > 1 && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive"
-                  onClick={() =>
-                    setTerms((prev) => prev.filter((_, j) => j !== i))
-                  }
-                >
-                  Удалить
-                </Button>
-              )}
-            </div>
-            <div className="grid sm:grid-cols-2 gap-3">
+            {showSeriesFields ? (
               <div>
-                <Label className="text-xs">Территория (код)</Label>
+                <Label>Количество серий</Label>
                 <Input
                   className="mt-1"
-                  value={term.territoryCode}
-                  onChange={(e) =>
-                    setTerm(i, { territoryCode: e.target.value })
-                  }
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={episodeCount}
+                  onChange={(e) => setEpisodeCount(e.target.value.replace(/\D/g, ""))}
+                  placeholder="Например, 12"
                 />
               </div>
+            ) : null}
+            <div>
+              <Label>Хронометраж</Label>
+              <p className="text-xs text-muted-foreground mt-0.5 mb-1">
+                Для всех типов: длительность выпуска или серии (как принято в договоре).
+              </p>
+              <Input
+                className="mt-1"
+                value={runtime}
+                onChange={(e) => setRuntime(e.target.value)}
+                placeholder="Например: 98 мин; 45 мин/серия; 12×45 мин"
+              />
+            </div>
+          </div>
+        ) : null}
+
+        {step === 2 ? (
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              Поля ниже сохраняются в карточке каталога и подставляются в оффер при выборе этого тайтла.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {showSeriesFields ? (
+                <div>
+                  <Label>Количество сезонов</Label>
+                  <Input
+                    className="mt-1"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={seasonCount}
+                    onChange={(e) => setSeasonCount(e.target.value.replace(/\D/g, ""))}
+                    placeholder="Например, 1"
+                  />
+                </div>
+              ) : null}
               <div>
-                <Label className="text-xs">Формат лицензии</Label>
-                <select
-                  className="mt-1 w-full rounded-md border border-border/50 bg-input-background px-2 py-2 text-sm"
-                  value={term.exclusivity}
-                  onChange={(e) =>
-                    setTerm(i, { exclusivity: e.target.value })
-                  }
-                >
-                  {CATALOG_EXCLUSIVITY.map((x) => (
-                    <option key={x.value} value={x.value}>
-                      {x.label}
-                    </option>
-                  ))}
+                <Label>Год производства</Label>
+                <Input className="mt-1" value={productionYear} onChange={(e) => setProductionYear(e.target.value)} placeholder="2025" />
+              </div>
+              <div>
+                <Label>Страна производства</Label>
+                <Input className="mt-1" value={countryOfProduction} onChange={(e) => setCountryOfProduction(e.target.value)} placeholder="Например, Казахстан" />
+              </div>
+              <div>
+                <Label>Формат (текст для оффера)</Label>
+                <Input className="mt-1" value={contentFormatExtra} onChange={(e) => setContentFormatExtra(e.target.value)} placeholder="Иначе подставится тип актива из поля выше" />
+              </div>
+              <div>
+                <Label>Локальное название</Label>
+                <Input className="mt-1" value={localTitle} onChange={(e) => setLocalTitle(e.target.value)} placeholder="Если пусто, будет равно оригинальному" />
+              </div>
+              <div>
+                <Label>Жанр</Label>
+                <Input className="mt-1" value={genre} onChange={(e) => setGenre(e.target.value)} />
+              </div>
+              <div>
+                <Label>Возрастной рейтинг</Label>
+                <Input className="mt-1" value={ageRating} onChange={(e) => setAgeRating(e.target.value)} placeholder="Например, 16+" />
+              </div>
+              <div>
+                <Label>Нужна локализация</Label>
+                <select className="mt-1 w-full rounded-md border border-border/50 bg-input-background px-3 py-2 text-sm" value={localizationNeeded} onChange={(e) => setLocalizationNeeded(e.target.value)}>
+                  <option value="Да">Да</option>
+                  <option value="Нет">Нет</option>
                 </select>
+              </div>
+              <div>
+                <Label>Статус муз. прав</Label>
+                <Input className="mt-1" value={musicRightsStatus} onChange={(e) => setMusicRightsStatus(e.target.value)} placeholder="Например, Подтверждён" />
+              </div>
+              <div>
+                <Label>Статус цепочки прав</Label>
+                <Input className="mt-1" value="Не загружены" disabled />
+              </div>
+              {showPremiereCategoryField ? (
+                <div>
+                  <Label>Категория фильма (премьера)</Label>
+                  <select className="mt-1 w-full rounded-md border border-border/50 bg-input-background px-3 py-2 text-sm" value={premiereCategory} onChange={(e) => setPremiereCategory(e.target.value)}>
+                    {CATALOG_PREMIERE_CATEGORIES.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+              <div className="sm:col-span-2">
+                <Label>Кинотеатральный релиз</Label>
+                <Input className="mt-1" value={theatricalRelease} onChange={(e) => setTheatricalRelease(e.target.value)} />
+              </div>
+              <div className="sm:col-span-2">
+                <Label>Дистрибьютор (необязательно)</Label>
+                <Input className="mt-1" value={distributorLine} onChange={(e) => setDistributorLine(e.target.value)} placeholder='По умолчанию в оффере: ТОО «Growix Content Group»' />
               </div>
             </div>
             <div>
-              <Label className="text-xs">Платформы</Label>
-              <div className="flex flex-wrap gap-3 mt-2">
-                {CATALOG_PLATFORM_OPTIONS.map(({ value, label }) => (
-                  <label
-                    key={value}
-                    className="flex items-center gap-1.5 text-sm"
-                  >
-                    <Checkbox
-                      checked={term.platforms.includes(value)}
-                      onCheckedChange={() => togglePlatform(i, value)}
-                    />
-                    {label}
-                  </label>
+              <Label>Правообладатель</Label>
+              <select
+                className="mt-1 w-full rounded-md border border-border/50 bg-input-background px-3 py-2 text-sm"
+                value={rightsHolderOrgId}
+                onChange={(e) => setRightsHolderOrgId(e.target.value)}
+              >
+                {holders.length === 0 ? (
+                  <option value="">— выберите или создайте —</option>
+                ) : null}
+                {holders.map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {h.legalName}
+                  </option>
                 ))}
-              </div>
+              </select>
+              {holders.length === 0 && !inlineHolderOpen ? (
+                <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+                  В списке нет правообладателей — создайте организацию ниже.
+                </p>
+              ) : null}
+              {!inlineHolderOpen ? (
+                <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => setInlineHolderOpen(true)}>
+                  + Новый правообладатель
+                </Button>
+              ) : (
+                <div className="mt-2 space-y-2 rounded-lg border border-border p-3">
+                  <p className="text-xs text-muted-foreground">
+                    Организация с типом «правообладатель» (rights_holder).
+                  </p>
+                  <Input placeholder="Юридическое название" value={newHolderName} onChange={(e) => setNewHolderName(e.target.value)} />
+                  <Input placeholder="Страна (ISO2)" value={newHolderCountry} onChange={(e) => setNewHolderCountry(e.target.value)} maxLength={2} />
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => void createInlineRightsHolder()}
+                      disabled={creatingHolder || !newHolderName.trim() || !newHolderCountry.trim()}
+                    >
+                      {creatingHolder ? "Создание…" : "Создать правообладателя"}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setInlineHolderOpen(false);
+                        setNewHolderName("");
+                        setNewHolderCountry("KZ");
+                      }}
+                    >
+                      Отмена
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="grid sm:grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs">Длительность (лет), опц.</Label>
-                <Input
-                  className="mt-1"
-                  type="text"
-                  inputMode="decimal"
-                  value={term.durationYears}
-                  onChange={(e) =>
-                    setTerm(i, { durationYears: e.target.value })
-                  }
-                  placeholder="2"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Языки (через запятую)</Label>
-                <Input
-                  className="mt-1"
-                  value={term.languageRights}
-                  onChange={(e) =>
-                    setTerm(i, { languageRights: e.target.value })
-                  }
-                  placeholder="original, sub_ru"
-                />
-              </div>
+            <div>
+              <Label>Постер (обложка)</Label>
+              <p className="text-xs text-muted-foreground mt-0.5 mb-2">
+                JPEG, PNG, GIF или WebP, до ~12 МБ. Отображается в каталоге и на странице контента.
+              </p>
+              <Input
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                className="mt-1 cursor-pointer"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  setPosterFile(f ?? null);
+                }}
+              />
+              {posterPreviewUrl ? (
+                <div className="mt-3 rounded-lg border border-border overflow-hidden max-w-xs aspect-[2/3] bg-muted">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={posterPreviewUrl}
+                    alt="Предпросмотр постера"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ) : null}
+              {posterFile ? (
+                <Button type="button" variant="ghost" size="sm" className="mt-2" onClick={() => setPosterFile(null)}>
+                  Убрать файл
+                </Button>
+              ) : null}
             </div>
           </div>
-        ))}
+        ) : null}
+
+        {step === 3 ? (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold">Лицензионные сроки</h2>
+            {terms.map((term, i) => (
+              <div
+                key={i}
+                className="rounded-xl border border-border bg-card p-4 space-y-3"
+              >
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Строка {i + 1}</span>
+                  {terms.length > 1 ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive"
+                      onClick={() =>
+                        setTerms((prev) => prev.filter((_, j) => j !== i))
+                      }
+                    >
+                      Удалить
+                    </Button>
+                  ) : null}
+                </div>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Территория (код)</Label>
+                    <Input className="mt-1" value={term.territoryCode} onChange={(e) => setTerm(i, { territoryCode: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Формат лицензии</Label>
+                    <select className="mt-1 w-full rounded-md border border-border/50 bg-input-background px-2 py-2 text-sm" value={term.exclusivity} onChange={(e) => setTerm(i, { exclusivity: e.target.value })}>
+                      {CATALOG_EXCLUSIVITY.map((x) => (
+                        <option key={x.value} value={x.value}>
+                          {x.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">Платформы</Label>
+                  <div className="flex flex-wrap gap-3 mt-2">
+                    {CATALOG_PLATFORM_OPTIONS.map(({ value, label }) => (
+                      <label key={value} className="flex items-center gap-1.5 text-sm">
+                        <Checkbox
+                          checked={term.platforms.includes(value)}
+                          onCheckedChange={() => togglePlatform(i, value)}
+                        />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Длительность (лет), опц.</Label>
+                    <Input className="mt-1" type="text" inputMode="decimal" value={term.durationYears} onChange={(e) => setTerm(i, { durationYears: e.target.value })} placeholder="2" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Языки (через запятую)</Label>
+                    <Input className="mt-1" value={term.languageRights} onChange={(e) => setTerm(i, { languageRights: e.target.value })} placeholder="original, sub_ru" />
+                  </div>
+                </div>
+              </div>
+            ))}
+            <Button type="button" variant="outline" onClick={() => setTerms((prev) => [...prev, defaultCatalogTerm()])}>
+              + Добавить строку лицензии
+            </Button>
+          </div>
+        ) : null}
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <Button
-          type="button"
-          onClick={() => void submit()}
-          disabled={loading || validationError !== null}
-          title={validationError ?? undefined}
-        >
-          {loading ? "Создание…" : submitLabel}
-        </Button>
+        {step > 1 ? (
+          <Button type="button" variant="outline" onClick={prevStep}>
+            Назад
+          </Button>
+        ) : null}
+        {step < 3 ? (
+          <Button type="button" onClick={nextStep}>
+            Далее
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            onClick={() => void submit()}
+            disabled={loading || validationError !== null}
+            title={validationError ?? undefined}
+          >
+            {loading ? "Создание…" : submitLabel}
+          </Button>
+        )}
         {isEmbedded && onCancel ? (
           <Button type="button" variant="outline" onClick={onCancel}>
             Отмена

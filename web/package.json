@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack -p 3020",
     "build": "next build --turbopack",
     "start": "next start -p 3020",
-    "lint": "eslint"
+    "lint": "eslint",
+    "check:ui-locale": "node scripts/check-ui-locale.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

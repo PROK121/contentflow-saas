@@ -147,7 +147,9 @@ function defaultOfferForm(): OfferFormState {
 }
 
 function parseOfferTerritoryCodes(value: string): string[] {
-  const byLabel = new Map(DEAL_TERRITORY_PRESETS.map((p) => [p.label, p.code]));
+  const byLabel = new Map<string, string>(
+    DEAL_TERRITORY_PRESETS.map((p) => [p.label, p.code]),
+  );
   return value
     .split(",")
     .map((s) => s.trim())

@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, Download, FileText, PenTool } from "lucide-react";
 import { v1Fetch, v1DownloadFile } from "@/lib/v1-client";
+import { EmptyState, ErrorState, LoadingState } from "@/components/PageState";
+import { tr } from "@/lib/i18n";
 
 interface Contract {
   id: string;
@@ -40,6 +42,7 @@ export default function HolderContractsPage() {
 
   async function reload() {
     try {
+      setError(null);
       setItems(await v1Fetch<Contract[]>("/holder/contracts"));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ошибка");
@@ -53,29 +56,26 @@ export default function HolderContractsPage() {
   return (
     <div className="mx-auto max-w-5xl">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Договоры</h1>
+        <h1 className="text-2xl font-semibold">{tr("holder", "contractsTitle")}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Контракты, в которых вы — правообладатель. Договор со статусом «На
           подписании» можно подписать прямо в кабинете.
         </p>
       </div>
 
-      {error ? (
-        <div className="mb-6 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
-      ) : null}
+      {error ? <ErrorState message={error} onRetry={() => void reload()} /> : null}
 
       {items === null ? (
-        <p className="text-sm text-muted-foreground">Загрузка…</p>
+        <LoadingState label={tr("holder", "loadingData")} />
       ) : items.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border/60 bg-card p-10 text-center">
-          <FileText className="mx-auto mb-3 size-10 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Договоров пока нет.</p>
-        </div>
+        <EmptyState
+          icon={<FileText className="size-10" />}
+          title={tr("holder", "noContracts")}
+        />
       ) : (
         <div className="overflow-hidden rounded-xl border border-border/40 bg-card">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-sm">
             <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 text-left">№</th>
@@ -161,6 +161,7 @@ export default function HolderContractsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

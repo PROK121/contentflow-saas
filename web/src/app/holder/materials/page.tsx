@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronRight, FolderUp, Loader2 } from "lucide-react";
+import { ChevronRight, FolderUp } from "lucide-react";
 import { v1Fetch } from "@/lib/v1-client";
+import { EmptyState, ErrorState, LoadingState } from "@/components/PageState";
+import { tr } from "@/lib/i18n";
 import {
   MaterialRequest,
   STATUS_LABEL,
@@ -30,14 +32,28 @@ export default function HolderMaterialsListPage() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"active" | "all">("active");
 
+  async function reload(nextFilter = filter) {
+    try {
+      setError(null);
+      const url =
+        nextFilter === "active"
+          ? "/holder/material-requests?activeOnly=1"
+          : "/holder/material-requests";
+      const data = await v1Fetch<MaterialRequest[]>(url);
+      setRequests(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка");
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const url =
-          filter === "active"
-            ? "/holder/material-requests?activeOnly=1"
-            : "/holder/material-requests";
+        const url = filter === "active"
+          ? "/holder/material-requests?activeOnly=1"
+          : "/holder/material-requests";
+        setError(null);
         const data = await v1Fetch<MaterialRequest[]>(url);
         if (!cancelled) setRequests(data);
       } catch (e) {
@@ -64,7 +80,7 @@ export default function HolderMaterialsListPage() {
     <div className="mx-auto max-w-5xl">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Материалы</h1>
+          <h1 className="text-2xl font-semibold">{tr("holder", "materialsTitle")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Запросы материалов от менеджеров платформы. Загрузите файлы
             по чек-листу — менеджер проверит и подтвердит каждый.
@@ -96,24 +112,15 @@ export default function HolderMaterialsListPage() {
         </div>
       </div>
 
-      {error ? (
-        <div className="mb-6 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
-      ) : null}
+      {error ? <ErrorState message={error} onRetry={() => void reload()} /> : null}
 
       {requests === null ? (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" />
-          Загрузка…
-        </p>
+        <LoadingState label={tr("holder", "loadingData")} />
       ) : requests.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border/60 bg-card p-10 text-center">
-          <FolderUp className="mx-auto mb-3 size-10 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
-            Пока нет запросов на материалы.
-          </p>
-        </div>
+        <EmptyState
+          icon={<FolderUp className="size-10" />}
+          title={tr("holder", "noMaterials")}
+        />
       ) : (
         <div className="space-y-8">
           <RequestsSection

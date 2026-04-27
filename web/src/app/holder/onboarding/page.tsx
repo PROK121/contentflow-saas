@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { v1Fetch } from "@/lib/v1-client";
+import { ErrorState } from "@/components/PageState";
 
 const TERMS_VERSION = "2026-04-26";
 
@@ -68,11 +69,7 @@ export default function HolderOnboardingPage() {
             организацию в кабинете правообладателя.
           </span>
         </label>
-        {error ? (
-          <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {error}
-          </p>
-        ) : null}
+        {error ? <ErrorState message={error} /> : null}
         <button
           type="submit"
           disabled={submitting}

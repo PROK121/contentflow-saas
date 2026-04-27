@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Handshake } from "lucide-react";
 import { v1Fetch } from "@/lib/v1-client";
+import { EmptyState, ErrorState, LoadingState } from "@/components/PageState";
+import { tr } from "@/lib/i18n";
 
 interface Deal {
   id: string;
@@ -31,39 +33,38 @@ export default function HolderDealsPage() {
   const [deals, setDeals] = useState<Deal[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  async function reload() {
+    try {
+      setError(null);
+      setDeals(await v1Fetch<Deal[]>("/holder/deals"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка");
+    }
+  }
+
   useEffect(() => {
-    (async () => {
-      try {
-        setDeals(await v1Fetch<Deal[]>("/holder/deals"));
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Ошибка");
-      }
-    })();
+    void reload();
   }, []);
 
   return (
     <div className="mx-auto max-w-5xl">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Сделки</h1>
+        <h1 className="text-2xl font-semibold">{tr("holder", "dealsTitle")}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Активные сделки и переговоры по вашему контенту. Финансовые детали
           скрыты — отображается только название покупателя и стадия.
         </p>
       </div>
 
-      {error ? (
-        <div className="mb-6 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
-      ) : null}
+      {error ? <ErrorState message={error} onRetry={() => void reload()} /> : null}
 
       {deals === null ? (
-        <p className="text-sm text-muted-foreground">Загрузка…</p>
+        <LoadingState label={tr("holder", "loadingData")} />
       ) : deals.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border/60 bg-card p-10 text-center">
-          <Handshake className="mx-auto mb-3 size-10 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Активных сделок нет.</p>
-        </div>
+        <EmptyState
+          icon={<Handshake className="size-10" />}
+          title={tr("holder", "noDeals")}
+        />
       ) : (
         <div className="space-y-3">
           {deals.map((d) => (

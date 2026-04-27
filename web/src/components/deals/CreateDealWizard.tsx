@@ -117,6 +117,9 @@ export function CreateDealWizard(props: {
 }) {
   const { open, onOpenChange, onCreated, wizardSeed } = props;
   const [step, setStep] = useState<1 | 2>(1);
+  const [step1Section, setStep1Section] = useState<"counterparty" | "commercial">(
+    "counterparty",
+  );
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -178,6 +181,7 @@ export function CreateDealWizard(props: {
   useEffect(() => {
     if (!open) return;
     setStep(1);
+    setStep1Section("counterparty");
     setErr(null);
     setInlineClientOpen(false);
     setSoldHintIds([]);
@@ -557,6 +561,36 @@ export function CreateDealWizard(props: {
 
         {step === 1 && (
           <div className="space-y-4">
+            <div className="rounded-lg border border-border/60 bg-muted/20 p-2">
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setStep1Section("counterparty")}
+                  className={cn(
+                    "rounded-md px-3 py-2 text-left transition-colors",
+                    step1Section === "counterparty"
+                      ? "bg-card font-medium text-foreground"
+                      : "text-muted-foreground hover:bg-muted",
+                  )}
+                >
+                  1) Контрагент и контент
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStep1Section("commercial")}
+                  className={cn(
+                    "rounded-md px-3 py-2 text-left transition-colors",
+                    step1Section === "commercial"
+                      ? "bg-card font-medium text-foreground"
+                      : "text-muted-foreground hover:bg-muted",
+                  )}
+                >
+                  2) Коммерция и параметры
+                </button>
+              </div>
+            </div>
+            {step1Section === "counterparty" && (
+              <div className="space-y-4">
             <div>
               <Label>Тип сделки</Label>
               <p className="text-xs text-muted-foreground mt-0.5 mb-2">
@@ -864,7 +898,11 @@ export function CreateDealWizard(props: {
                 Добавить новый контент
               </Button>
             </div>
+              </div>
+            )}
 
+            {step1Section === "commercial" && (
+              <div className="space-y-4">
             <div>
               <Label>Ожидаемая сумма</Label>
               <div className="mt-1 flex gap-2">
@@ -1062,6 +1100,8 @@ export function CreateDealWizard(props: {
                 />
               </div>
             </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1072,7 +1112,7 @@ export function CreateDealWizard(props: {
                 checked={adminOverride}
                 onCheckedChange={(v) => setAdminOverride(v === true)}
               />
-              Разрешить override конфликтов (admin)
+              Разрешить ручной обход конфликтов (только для администратора)
             </label>
 
             {catalogIds.map((itemId) => {
@@ -1233,7 +1273,7 @@ export function CreateDealWizard(props: {
                       {v.licenseGaps.length > 0 && (
                         <p className="text-destructive">
                           Нет лицензии на территории: {v.licenseGaps.join(", ")}{" "}
-                          → Unavailable
+                          → недоступно
                         </p>
                       )}
                       {v.blockingConflicts.length > 0 && (
@@ -1251,10 +1291,10 @@ export function CreateDealWizard(props: {
                       )}
                       {v.canContinue ? (
                         <p className="text-emerald-700 dark:text-emerald-400">
-                          Можно продолжить (Available по проверке)
+                          Можно продолжить (проверка пройдена)
                         </p>
                       ) : (
-                        <p className="text-destructive">Continue заблокирован</p>
+                        <p className="text-destructive">Продолжение заблокировано</p>
                       )}
                     </div>
                   )}
@@ -1275,18 +1315,39 @@ export function CreateDealWizard(props: {
             </Button>
           )}
           {step === 1 && (
-            <Button
-              type="button"
-              onClick={() => setStep(2)}
-              disabled={
-                !buyerOrgId ||
-                !titleSuffix.trim() ||
-                !ownerUserId ||
-                catalogIds.length === 0
-              }
-            >
-              Далее: права
-            </Button>
+            <>
+              {step1Section === "commercial" ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setStep1Section("counterparty")}
+                >
+                  Назад к выбору контента
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                onClick={() => {
+                  if (step1Section === "counterparty") {
+                    setStep1Section("commercial");
+                    return;
+                  }
+                  setStep(2);
+                }}
+                disabled={
+                  step1Section === "counterparty"
+                    ? !buyerOrgId || catalogIds.length === 0
+                    : !buyerOrgId ||
+                      !titleSuffix.trim() ||
+                      !ownerUserId ||
+                      catalogIds.length === 0
+                }
+              >
+                {step1Section === "counterparty"
+                  ? "Далее: коммерция"
+                  : "Далее: права"}
+              </Button>
+            </>
           )}
           {step === 2 && (
             <Button
