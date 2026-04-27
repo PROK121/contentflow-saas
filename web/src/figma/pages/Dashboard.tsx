@@ -6,6 +6,7 @@ import { motion } from "motion/react";
 import { formatMoneyAmount } from "@/lib/format-money";
 import {
   TrendingUp,
+  TrendingDown,
   DollarSign,
   FileText,
   Clock,
@@ -14,6 +15,7 @@ import {
   ListTodo,
   AlertTriangle,
   ArrowRight,
+  Minus,
 } from "lucide-react";
 import {
   BarChart,
@@ -29,6 +31,8 @@ import {
 import { v1Fetch } from "@/lib/v1-client";
 import { Button } from "@/figma/components/ui/button";
 import { cn } from "@/figma/components/ui/utils";
+
+type Period = "30d" | "90d" | "1y";
 
 type PaymentStats = {
   inboundPaidTotal: string;
@@ -57,7 +61,15 @@ type ApiDeal = {
   catalogItems: { catalogItem: { title: string } }[];
 };
 
-type ContractRow = { id: string; status: string };
+type ContractRow = {
+  id: string;
+  status: string;
+  createdAt?: string;
+  signedAt?: string;
+  expiresAt?: string;
+  counterpartyLegalName?: string;
+  title?: string;
+};
 
 type CatalogRow = { id: string; status: string };
 
@@ -80,6 +92,9 @@ const STAGE_TABLE_CLASS: Record<string, string> = {
   paid: "text-success bg-success/15 border border-success/30",
 };
 
+const PERIOD_DAYS: Record<Period, number> = { "30d": 30, "90d": 90, "1y": 365 };
+const PERIOD_LABEL: Record<Period, string> = { "30d": "30 дней", "90d": "90 дней", "1y": "Год" };
+
 function parseExpectedValue(
   snap: Record<string, unknown> | null,
 ): string | number | null {
@@ -93,6 +108,52 @@ function monthKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
+function daysDiff(dateStr: string): number {
+  const now = Date.now();
+  const t = new Date(dateStr).getTime();
+  return Math.floor((now - t) / 86_400_000);
+}
+
+function periodStart(period: Period): Date {
+  const d = new Date();
+  d.setDate(d.getDate() - PERIOD_DAYS[period]);
+  return d;
+}
+
+function DeltaBadge({
+  current,
+  previous,
+}: {
+  current: number;
+  previous: number;
+}) {
+  if (previous === 0 && current === 0) return null;
+  const diff = current - previous;
+  if (diff === 0)
+    return (
+      <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-muted-foreground">
+        <Minus className="size-2.5" />0
+      </span>
+    );
+  const positive = diff > 0;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-0.5 text-[10px] font-semibold",
+        positive ? "text-success" : "text-destructive",
+      )}
+    >
+      {positive ? (
+        <TrendingUp className="size-2.5" />
+      ) : (
+        <TrendingDown className="size-2.5" />
+      )}
+      {positive ? "+" : ""}
+      {diff} vs пр.
+    </span>
+  );
+}
+
 export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -102,6 +163,7 @@ export function Dashboard() {
   const [catalogItems, setCatalogItems] = useState<CatalogRow[]>([]);
   const [tasksOpen, setTasksOpen] = useState(0);
   const [tasksOverdue, setTasksOverdue] = useState(0);
+  const [period, setPeriod] = useState<Period>("30d");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -157,10 +219,7 @@ export function Dashboard() {
   );
 
   const dealsInPipeline = useMemo(
-    () =>
-      activeDeals.filter(
-        (d) => d.stage !== "paid",
-      ).length,
+    () => activeDeals.filter((d) => d.stage !== "paid").length,
     [activeDeals],
   );
 
@@ -177,18 +236,107 @@ export function Dashboard() {
     [catalogItems],
   );
 
-  const pipelineChartData = useMemo(() => {
-    const order = ["lead", "negotiation", "contract", "paid"] as const;
-    return order.map((stage) => ({
-      name: STAGE_LABEL[stage] ?? stage,
-      count: activeDeals.filter((d) => d.stage === stage).length,
-    }));
-  }, [activeDeals]);
+  // --- Period-based deltas ---
+  const periodDeltas = useMemo(() => {
+    const days = PERIOD_DAYS[period];
+    const now = Date.now();
+    const curStart = now - days * 86_400_000;
+    const prevStart = curStart - days * 86_400_000;
 
+    const dealsInCur = deals.filter((d) => {
+      const t = new Date(d.createdAt).getTime();
+      return t >= curStart;
+    }).length;
+    const dealsInPrev = deals.filter((d) => {
+      const t = new Date(d.createdAt).getTime();
+      return t >= prevStart && t < curStart;
+    }).length;
+
+    const contractsInCur = contracts.filter((c) => {
+      if (!c.createdAt) return false;
+      const t = new Date(c.createdAt).getTime();
+      return t >= curStart;
+    }).length;
+    const contractsInPrev = contracts.filter((c) => {
+      if (!c.createdAt) return false;
+      const t = new Date(c.createdAt).getTime();
+      return t >= prevStart && t < curStart;
+    }).length;
+
+    return {
+      deals: { current: dealsInCur, previous: dealsInPrev },
+      contracts: { current: contractsInCur, previous: contractsInPrev },
+    };
+  }, [deals, contracts, period]);
+
+  // --- Attention items ---
+  const attentionItems = useMemo(() => {
+    const items: { type: string; label: string; href: string; detail: string }[] = [];
+
+    // Stuck deals: no update for 14+ days
+    const stuck = activeDeals.filter(
+      (d) => d.stage !== "paid" && daysDiff(d.updatedAt) >= 14,
+    );
+    if (stuck.length > 0) {
+      items.push({
+        type: "deal",
+        label: `${stuck.length} сделок без активности 14+ дней`,
+        href: "/deals",
+        detail: stuck
+          .slice(0, 3)
+          .map((d) => d.title)
+          .join(", ") + (stuck.length > 3 ? " и др." : ""),
+      });
+    }
+
+    // Contracts awaiting signature
+    const awaitingSig = contracts.filter((c) => c.status === "sent");
+    if (awaitingSig.length > 0) {
+      items.push({
+        type: "contract",
+        label: `${awaitingSig.length} контрактов ожидают подписи`,
+        href: "/contracts",
+        detail: "Отправлены клиенту, но ещё не подписаны",
+      });
+    }
+
+    // Expiring contracts within 60 days
+    if (contracts.some((c) => c.expiresAt)) {
+      const soon = Date.now() + 60 * 86_400_000;
+      const expiring = contracts.filter((c) => {
+        if (!c.expiresAt) return false;
+        const t = new Date(c.expiresAt).getTime();
+        return t > Date.now() && t <= soon;
+      });
+      if (expiring.length > 0) {
+        items.push({
+          type: "contract",
+          label: `${expiring.length} контрактов истекают в ближайшие 60 дней`,
+          href: "/contracts",
+          detail: "Требуется продление или переговоры",
+        });
+      }
+    }
+
+    // Overdue payments
+    if (payStats && Number(payStats.inboundOverdueCount) > 0) {
+      items.push({
+        type: "payment",
+        label: `${payStats.inboundOverdueCount} просроченных входящих платежей`,
+        href: "/payments",
+        detail: `На сумму ${formatMoneyAmount(payStats.inboundOverdueTotal)} ₸`,
+      });
+    }
+
+    return items;
+  }, [activeDeals, contracts, payStats]);
+
+  // --- Chart data based on period ---
   const newDealsByMonth = useMemo(() => {
+    const monthCount = period === "30d" ? 6 : period === "90d" ? 9 : 12;
     const now = new Date();
     const buckets: { key: string; name: string; deals: number }[] = [];
-    for (let i = 5; i >= 0; i--) {
+    for (let i = monthCount - 1; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       buckets.push({
         key: monthKey(d),
@@ -207,7 +355,15 @@ export function Dashboard() {
       }
     }
     return buckets.map(({ name, deals: n }) => ({ name, deals: n }));
-  }, [deals]);
+  }, [deals, period]);
+
+  const pipelineChartData = useMemo(() => {
+    const order = ["lead", "negotiation", "contract", "paid"] as const;
+    return order.map((stage) => ({
+      name: STAGE_LABEL[stage] ?? stage,
+      count: activeDeals.filter((d) => d.stage === stage).length,
+    }));
+  }, [activeDeals]);
 
   const recentDeals = useMemo(() => {
     return [...deals]
@@ -225,30 +381,31 @@ export function Dashboard() {
       {
         label: "Сделки в воронке",
         value: String(dealsInPipeline),
-        sub: `Активных сделок: ${activeDeals.length} · Оплачено: ${activeDeals.filter((d) => d.stage === "paid").length}`,
+        sub: `Активных: ${activeDeals.length} · Оплачено: ${activeDeals.filter((d) => d.stage === "paid").length}`,
+        delta: periodDeltas.deals,
         icon: TrendingUp,
         href: "/deals",
       },
       {
-        label: "Ожидают оплаты (входящие)",
+        label: "Ожидают оплаты",
         value: payStats
-          ? `${formatMoneyAmount(payStats.inboundPendingTotal)}\u00A0\u20B8`
+          ? `${formatMoneyAmount(payStats.inboundPendingTotal)} ₸`
           : "—",
         sub:
           pendingIn > 0
             ? `Счетов: ${pendingIn}${overdueIn ? ` · просрочено: ${overdueIn}` : ""}`
             : "Нет ожидающих поступлений",
+        delta: null,
         icon: Clock,
         href: "/payments",
       },
       {
         label: "Получено (входящие)",
         value: payStats
-          ? `${formatMoneyAmount(payStats.inboundPaidTotal)}\u00A0\u20B8`
+          ? `${formatMoneyAmount(payStats.inboundPaidTotal)} ₸`
           : "—",
-        sub: payStats
-          ? `Платежей: ${payStats.inboundPaidCount}`
-          : "Нет данных",
+        sub: payStats ? `Платежей: ${payStats.inboundPaidCount}` : "Нет данных",
+        delta: null,
         icon: DollarSign,
         href: "/payments",
       },
@@ -256,13 +413,15 @@ export function Dashboard() {
         label: "Контракты",
         value: String(contracts.length),
         sub: `Подписано: ${contractBreakdown.signed} · На подписи: ${contractBreakdown.sent} · Черновики: ${contractBreakdown.draft}${contractBreakdown.expired ? ` · Неактуально: ${contractBreakdown.expired}` : ""}`,
+        delta: periodDeltas.contracts,
         icon: FileText,
         href: "/contracts",
       },
       {
         label: "Каталог контента",
         value: String(catalogActive),
-        sub: `Позиций не в архиве · всего записей: ${catalogItems.length}`,
+        sub: `Позиций не в архиве · всего: ${catalogItems.length}`,
+        delta: null,
         icon: Film,
         href: "/content",
       },
@@ -273,6 +432,7 @@ export function Dashboard() {
           tasksOverdue > 0
             ? `Открыто (к выполнению и в работе) · просрочено: ${tasksOverdue}`
             : "Открыто (к выполнению и в работе)",
+        delta: null,
         icon: ListTodo,
         href: "/tasks",
       },
@@ -287,37 +447,53 @@ export function Dashboard() {
     catalogItems.length,
     tasksOpen,
     tasksOverdue,
+    periodDeltas,
   ]);
 
   return (
     <div className="p-8 space-y-8">
+      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
       >
         <div>
-          <h1 className="text-2xl font-bold text-foreground mb-1">
-            Обзор
-          </h1>
+          <h1 className="text-2xl font-bold text-foreground mb-1">Обзор</h1>
           <p className="text-sm text-muted-foreground max-w-2xl">
-            Сводка по сделкам, платежам, контрактам, каталогу и задачам. Данные
-            подгружаются из API при открытии страницы.
+            Сводка по сделкам, платежам, контрактам, каталогу и задачам.
           </p>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={loading}
-          onClick={() => void load()}
-          className="shrink-0"
-        >
-          <RefreshCw
-            className={cn("size-4 mr-2", loading && "animate-spin")}
-          />
-          Обновить
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Period selector */}
+          <div className="flex rounded-md border border-border overflow-hidden text-xs font-semibold">
+            {(["30d", "90d", "1y"] as Period[]).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPeriod(p)}
+                className={cn(
+                  "px-3 py-1.5 transition-colors",
+                  period === p
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-card text-muted-foreground hover:bg-muted",
+                )}
+              >
+                {PERIOD_LABEL[p]}
+              </button>
+            ))}
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={loading}
+            onClick={() => void load()}
+          >
+            <RefreshCw className={cn("size-4 mr-2", loading && "animate-spin")} />
+            Обновить
+          </Button>
+        </div>
       </motion.div>
 
       {err ? (
@@ -326,17 +502,59 @@ export function Dashboard() {
         </div>
       ) : null}
 
+      {/* Attention block — Task #26 */}
+      {!loading && attentionItems.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-lg border border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 overflow-hidden"
+        >
+          <div className="px-4 py-2.5 border-b border-amber-500/25 bg-amber-500/10 flex items-center gap-2">
+            <AlertTriangle className="size-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            <span className="text-sm font-bold text-amber-800 dark:text-amber-200">
+              Требуют внимания
+            </span>
+            <span className="ml-auto text-xs font-semibold text-amber-600 dark:text-amber-400">
+              {attentionItems.length} {attentionItems.length === 1 ? "пункт" : attentionItems.length < 5 ? "пункта" : "пунктов"}
+            </span>
+          </div>
+          <div className="divide-y divide-amber-500/15">
+            {attentionItems.map((item, i) => (
+              <div key={i} className="flex flex-wrap items-center gap-2 px-4 py-2.5">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                    {item.label}
+                  </p>
+                  <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+                    {item.detail}
+                  </p>
+                </div>
+                <Link
+                  href={item.href}
+                  className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                >
+                  Перейти
+                  <ArrowRight className="size-3" />
+                </Link>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Overdue banner */}
       {payStats &&
       (Number(payStats.inboundOverdueCount ?? 0) > 0 ||
-        Number(payStats.outboundPendingCount ?? 0) > 0) ? (
+        Number(payStats.outboundPendingCount ?? 0) > 0) &&
+      attentionItems.length === 0 ? (
         <div className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100 flex flex-wrap items-center gap-2">
           <AlertTriangle className="size-4 shrink-0" />
           <span>
             {Number(payStats.inboundOverdueCount) > 0
-              ? `Просроченных входящих: ${payStats.inboundOverdueCount} (${formatMoneyAmount(payStats.inboundOverdueTotal)}\u00A0\u20B8). `
+              ? `Просроченных входящих: ${payStats.inboundOverdueCount} (${formatMoneyAmount(payStats.inboundOverdueTotal)} ₸). `
               : ""}
             {Number(payStats.outboundPendingCount) > 0
-              ? `Исходящих к оплате: ${payStats.outboundPendingCount} (${formatMoneyAmount(payStats.outboundPendingTotal)}\u00A0\u20B8).`
+              ? `Исходящих к оплате: ${payStats.outboundPendingCount} (${formatMoneyAmount(payStats.outboundPendingTotal)} ₸).`
               : ""}
           </span>
           <Link
@@ -349,6 +567,7 @@ export function Dashboard() {
         </div>
       ) : null}
 
+      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {kpiCards.map((stat, index) => {
           const Icon = stat.icon;
@@ -371,10 +590,18 @@ export function Dashboard() {
                       className="text-primary-foreground"
                     />
                   </div>
-                  <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-                    Перейти
-                    <ArrowRight className="size-3" />
-                  </span>
+                  <div className="flex flex-col items-end gap-1">
+                    {stat.delta && (
+                      <DeltaBadge
+                        current={stat.delta.current}
+                        previous={stat.delta.previous}
+                      />
+                    )}
+                    <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                      Перейти
+                      <ArrowRight className="size-3" />
+                    </span>
+                  </div>
                 </div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
                   {stat.label}
@@ -401,20 +628,24 @@ export function Dashboard() {
           Роялти: выплачено net{" "}
           <span className="font-mono font-semibold text-foreground">
             {formatMoneyAmount(payStats.payoutsNetTotal)}
-            {"\u00A0"}
-            {"\u20B8"}
+            {" "}
+            {"₸"}
           </span>
           {payStats.payoutsCount ? ` · ${payStats.payoutsCount} выплат` : ""}
           {Number.parseFloat(String(payStats.outboundPendingTotal || "0")) > 0
-            ? ` · исходящие к оплате: ${formatMoneyAmount(payStats.outboundPendingTotal)}\u00A0\u20B8`
+            ? ` · исходящие к оплате: ${formatMoneyAmount(payStats.outboundPendingTotal)} ₸`
             : ""}
           .{" "}
-          <Link href="/payments" className="text-primary font-medium hover:underline">
+          <Link
+            href="/payments"
+            className="text-primary font-medium hover:underline"
+          >
             Раздел платежей
           </Link>
         </p>
       ) : null}
 
+      {/* Charts */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-2">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -479,13 +710,20 @@ export function Dashboard() {
           transition={{ delay: 0.25, type: "spring", damping: 20 }}
           className="rounded-lg border border-border bg-card p-6 shadow-sm"
         >
-          <div className="mb-6 pb-3 border-b border-border">
-            <h3 className="text-base font-bold text-foreground uppercase tracking-wide">
-              Новые сделки по месяцам
-            </h3>
-            <p className="text-xs text-muted-foreground mt-1">
-              По дате создания (последние 6 месяцев)
-            </p>
+          <div className="mb-6 pb-3 border-b border-border flex items-start justify-between gap-2">
+            <div>
+              <h3 className="text-base font-bold text-foreground uppercase tracking-wide">
+                Новые сделки по месяцам
+              </h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                По дате создания ·{" "}
+                {period === "30d"
+                  ? "последние 6 месяцев"
+                  : period === "90d"
+                    ? "последние 9 месяцев"
+                    : "последние 12 месяцев"}
+              </p>
+            </div>
           </div>
           {loading ? (
             <p className="text-sm text-muted-foreground py-12 text-center">
@@ -538,6 +776,7 @@ export function Dashboard() {
         </motion.div>
       </div>
 
+      {/* Recent deals table */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

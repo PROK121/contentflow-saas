@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { v1Fetch } from "@/lib/v1-client";
 import { formatAssetTypeLabel } from "@/lib/asset-type-labels";
@@ -386,6 +386,8 @@ export function RightsBase() {
   const [materialRequests, setMaterialRequests] = useState<MaterialRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [expiryDays, setExpiryDays] = useState<60 | 90 | 180 | null>(null);
+  const [activeTab, setActiveTab] = useState("titles");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -429,6 +431,115 @@ export function RightsBase() {
     return m;
   }, [contracts]);
 
+  // --- expiry filter ---
+  const expiryThreshold = useMemo(() => {
+    if (!expiryDays) return null;
+    return Date.now() + expiryDays * 86_400_000;
+  }, [expiryDays]);
+
+  // --- CSV export ---
+  function exportCsv(tab: string) {
+    let headers: string[] = [];
+    const rows: string[][] = [];
+
+    if (tab === "titles") {
+      headers = ["ID тайтла", "Оригинальное название", "Тип контента", "Правообладатель", "Год производства", "Страна"];
+      for (const item of catalog) {
+        const meta = readCatalogOfferSourceMeta(item.metadata);
+        rows.push([
+          titleId(item),
+          item.title,
+          formatAssetTypeLabel(item.assetType),
+          item.rightsHolder.legalName,
+          meta.productionYear?.trim() || "",
+          meta.countryOfProduction?.trim() || "",
+        ]);
+      }
+    } else if (tab === "acq") {
+      headers = ["ID", "Тайтл", "Правообладатель", "Стадия", "Дата подписи", "Нач. лицензии", "Конец лицензии", "Территория", "Модель оплаты", "Сумма"];
+      for (const deal of deals.filter((d) => d.kind === "purchase")) {
+        for (const row of deal.catalogItems) {
+          const rs = parseRs(row.rightsSelection);
+          const tid = catalog.find((c) => c.id === row.catalogItemId);
+          const t = tid ? titleId(tid) : row.catalogItemId.slice(0, 8);
+          const snap = deal.commercialSnapshot ?? {};
+          const ev = snap.expectedValue;
+          const gross = typeof ev === "string" || typeof ev === "number" ? formatMoneyAmount(String(ev)) : "";
+          rows.push([
+            `A-${deal.id.slice(0, 8)}`,
+            t,
+            deal.buyer.legalName,
+            dealStageLabel(deal.stage),
+            snap.signedAt ? snap.signedAt.slice(0, 10) : "",
+            rs?.startAt ? rs.startAt.slice(0, 10) : "",
+            rs?.endAt ? rs.endAt.slice(0, 10) : "",
+            rs?.territoryCodes?.length ? formatDealTerritoryCodes(rs.territoryCodes) : "",
+            String(snap.paymentModel ?? ""),
+            gross,
+          ]);
+        }
+      }
+    } else if (tab === "sales") {
+      headers = ["ID", "Тайтл", "Покупатель", "Стадия", "Дата подписи", "Нач. лицензии", "Конец лицензии", "Территория", "Модель оплаты", "Net (Возн-е правообл.) KZT", "Валюта"];
+      for (const deal of deals.filter((d) => d.kind === "sale")) {
+        for (const row of deal.catalogItems) {
+          const rs = parseRs(row.rightsSelection);
+          const tid = catalog.find((c) => c.id === row.catalogItemId);
+          const t = tid ? titleId(tid) : row.catalogItemId.slice(0, 8);
+          const snap = deal.commercialSnapshot ?? {};
+          const ev = snap.expectedValue;
+          const fee = typeof ev === "string" || typeof ev === "number" ? formatMoneyAmount(String(ev)) : "";
+          rows.push([
+            `S-${deal.id.slice(0, 8)}`,
+            t,
+            deal.buyer.legalName,
+            dealStageLabel(deal.stage),
+            snap.signedAt ? snap.signedAt.slice(0, 10) : "",
+            rs?.startAt ? rs.startAt.slice(0, 10) : "",
+            rs?.endAt ? rs.endAt.slice(0, 10) : "",
+            rs?.territoryCodes?.length ? formatDealTerritoryCodes(rs.territoryCodes) : "",
+            String(snap.paymentModel ?? ""),
+            fee,
+            deal.currency,
+          ]);
+        }
+      }
+    } else if (tab === "platforms") {
+      headers = ["ID организации", "Наименование", "Страна", "Осн. языки", "Предпочтит. жанры", "Готовность к эксклюзиву", "Предпочтит. срок", "Средний бюджет", "Платёжная дисциплина", "Тех. требования", "Контакт (ФИО)", "Email", "Телефон", "Примечания"];
+      for (const o of orgs) {
+        const m = o.metadata ?? {};
+        rows.push([
+          `P-${o.id.slice(0, 6)}`,
+          o.legalName,
+          o.country,
+          m.primaryLanguages ?? "",
+          m.preferredGenres ?? "",
+          m.exclusivityReadiness ?? "",
+          m.preferredTerm ?? "",
+          m.averageBudget ?? "",
+          m.paymentDiscipline ?? "",
+          m.techRequirements ?? "",
+          m.contactName ?? "",
+          m.contactEmail ?? "",
+          m.contactPhone ?? "",
+          m.notes ?? "",
+        ]);
+      }
+    } else {
+      return;
+    }
+
+    const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
+    const csvContent = [headers, ...rows].map((r) => r.map(escape).join(",")).join("\n");
+    const blob = new Blob(["﻿" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `rights-base-${tab}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   /// Группируем запросы материалов по catalogItemId для быстрого доступа
   /// в таблице «Материалы». Один тайтл может иметь несколько запросов
   /// (разные слоты, разные итерации).
@@ -468,6 +579,11 @@ export function RightsBase() {
     for (const deal of deals.filter((d) => d.kind === "purchase")) {
       for (const row of deal.catalogItems) {
         const rs = parseRs(row.rightsSelection);
+        // Expiry filter
+        if (expiryThreshold && rs?.endAt) {
+          const endT = new Date(rs.endAt).getTime();
+          if (endT > expiryThreshold) continue;
+        }
         const tid = catalog.find((c) => c.id === row.catalogItemId);
         const t = tid ? titleId(tid) : `T-${row.catalogItemId.slice(0, 8)}`;
         const snap = deal.commercialSnapshot ?? {};
@@ -529,13 +645,18 @@ export function RightsBase() {
       }
     }
     return rows;
-  }, [deals, catalog, contractsByDealId]);
+  }, [deals, catalog, contractsByDealId, expiryThreshold]);
 
   const salesRows = useMemo(() => {
     const rows: React.ReactNode[] = [];
     for (const deal of deals.filter((d) => d.kind === "sale")) {
       for (const row of deal.catalogItems) {
         const rs = parseRs(row.rightsSelection);
+        // Expiry filter
+        if (expiryThreshold && rs?.endAt) {
+          const endT = new Date(rs.endAt).getTime();
+          if (endT > expiryThreshold) continue;
+        }
         const tid = catalog.find((c) => c.id === row.catalogItemId);
         const t = tid ? titleId(tid) : `T-${row.catalogItemId.slice(0, 8)}`;
         const snap = deal.commercialSnapshot ?? {};
@@ -597,7 +718,7 @@ export function RightsBase() {
       }
     }
     return rows;
-  }, [deals, catalog, contractsByDealId]);
+  }, [deals, catalog, contractsByDealId, expiryThreshold]);
 
   if (loading) {
     return (
@@ -619,40 +740,70 @@ export function RightsBase() {
         <p className="text-sm text-destructive whitespace-pre-wrap">{err}</p>
       ) : null}
 
-      <Tabs defaultValue="titles" className="w-full gap-4">
-        <TabsList className="flex h-auto w-full max-w-full flex-wrap justify-start gap-1 rounded-xl bg-muted p-1">
-          <TabsTrigger value="readme" className="text-xs sm:text-sm">
-            Описание
-          </TabsTrigger>
-          <TabsTrigger value="titles" className="text-xs sm:text-sm">
-            Реестр тайтлов
-          </TabsTrigger>
-          <TabsTrigger value="acq" className="text-xs sm:text-sm">
-            Сделки закупа
-          </TabsTrigger>
-          <TabsTrigger value="sales" className="text-xs sm:text-sm">
-            Сделки продаж
-          </TabsTrigger>
-          <TabsTrigger value="platforms" className="text-xs sm:text-sm">
-            Площадки
-          </TabsTrigger>
-          <TabsTrigger value="deliverables" className="text-xs sm:text-sm">
-            Материалы
-          </TabsTrigger>
-          <TabsTrigger value="dict" className="text-xs sm:text-sm">
-            Справочники
-          </TabsTrigger>
-        </TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <TabsList className="flex h-auto max-w-full flex-wrap justify-start gap-1 rounded-xl bg-muted p-1">
+            <TabsTrigger value="titles" className="text-xs sm:text-sm">
+              Реестр тайтлов
+            </TabsTrigger>
+            <TabsTrigger value="acq" className="text-xs sm:text-sm">
+              Сделки закупа
+            </TabsTrigger>
+            <TabsTrigger value="sales" className="text-xs sm:text-sm">
+              Сделки продаж
+            </TabsTrigger>
+            <TabsTrigger value="platforms" className="text-xs sm:text-sm">
+              Площадки
+            </TabsTrigger>
+            <TabsTrigger value="deliverables" className="text-xs sm:text-sm">
+              Материалы
+            </TabsTrigger>
+            <TabsTrigger value="dict" className="text-xs sm:text-sm">
+              Справочники
+            </TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="readme" className="mt-0">
-          <div className="rounded-xl border border-border bg-card p-5 text-sm leading-relaxed text-foreground">
-            {README_LINES.map((line, i) => (
-              <p key={i} className={line === "" ? "h-2" : ""}>
-                {line}
-              </p>
-            ))}
+          {/* Toolbar: expiry filter + CSV export */}
+          <div className="flex flex-wrap items-center gap-2">
+            {(activeTab === "acq" || activeTab === "sales") && (
+              <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1 text-xs font-semibold">
+                <span className="px-2 text-muted-foreground">Истекают через:</span>
+                {([60, 90, 180] as const).map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setExpiryDays((prev) => (prev === d ? null : d))}
+                    className={`rounded px-2 py-1 transition-colors ${
+                      expiryDays === d
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {d}д
+                  </button>
+                ))}
+                {expiryDays && (
+                  <button
+                    type="button"
+                    onClick={() => setExpiryDays(null)}
+                    className="rounded px-2 py-1 text-muted-foreground hover:bg-muted"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            )}
+            {["titles", "acq", "sales", "platforms"].includes(activeTab) && (
+              <button
+                type="button"
+                onClick={() => exportCsv(activeTab)}
+                className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
+              >
+                ↓ CSV
+              </button>
+            )}
           </div>
-        </TabsContent>
+        </div>
 
         <TabsContent value="titles" className="mt-0">
           <TableShell>

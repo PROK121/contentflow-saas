@@ -18,6 +18,9 @@ import {
   LayoutGrid,
   Table2,
   Trash2,
+  CheckSquare,
+  Square,
+  X,
 } from "lucide-react";
 import {
   useCallback,
@@ -156,14 +159,41 @@ const STATUS_LABEL: Record<string, string> = {
 function CatalogTable(props: {
   items: GridItem[];
   renderRowActions: (item: GridItem) => ReactNode;
+  selectedIds?: Set<string>;
+  onToggle?: (id: string) => void;
+  onSelectAll?: (ids: string[]) => void;
 }) {
-  const { items, renderRowActions } = props;
+  const { items, renderRowActions, selectedIds, onToggle, onSelectAll } = props;
   if (!items.length) return null;
+  const allSelected = items.length > 0 && items.every((i) => selectedIds?.has(i.id));
+  const someSelected = !allSelected && items.some((i) => selectedIds?.has(i.id));
   return (
     <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
       <table className="w-full min-w-[880px] text-sm">
         <thead className="bg-muted/50 border-b-2 border-border">
           <tr>
+            {onToggle && (
+              <th className="px-4 py-3 w-10">
+                <button
+                  type="button"
+                  aria-label="Выбрать все"
+                  onClick={() =>
+                    allSelected
+                      ? items.forEach((i) => onToggle(i.id))
+                      : onSelectAll?.(items.map((i) => i.id))
+                  }
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {allSelected ? (
+                    <CheckSquare size={16} strokeWidth={2.5} />
+                  ) : someSelected ? (
+                    <CheckSquare size={16} strokeWidth={2.5} className="opacity-50" />
+                  ) : (
+                    <Square size={16} strokeWidth={2.5} />
+                  )}
+                </button>
+              </th>
+            )}
             <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wide w-16">
               Обл.
             </th>
@@ -205,8 +235,27 @@ function CatalogTable(props: {
             return (
               <tr
                 key={item.id}
-                className="border-b border-border last:border-b-0 hover:bg-muted/25 transition-colors"
+                className={cn(
+                  "border-b border-border last:border-b-0 hover:bg-muted/25 transition-colors",
+                  selectedIds?.has(item.id) && "bg-primary/5",
+                )}
               >
+                {onToggle && (
+                  <td className="px-4 py-2 align-middle">
+                    <button
+                      type="button"
+                      aria-label="Выбрать"
+                      onClick={() => onToggle(item.id)}
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {selectedIds?.has(item.id) ? (
+                        <CheckSquare size={16} strokeWidth={2.5} className="text-primary" />
+                      ) : (
+                        <Square size={16} strokeWidth={2.5} />
+                      )}
+                    </button>
+                  </td>
+                )}
                 <td className="px-4 py-2 align-middle">
                   {item.posterFileName ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -486,6 +535,74 @@ export function ContentCatalog() {
   const [viewMode, setViewMode] = useState<CatalogViewMode>(() =>
     readStoredViewMode(),
   );
+
+  // --- Bulk selection ---
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  function toggleSelectItem(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function selectAll(ids: string[]) {
+    setSelectedIds(new Set(ids));
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+  }
+
+  async function bulkArchive() {
+    if (!selectedIds.size) return;
+    setBulkBusy(true);
+    setArchiveErr(null);
+    try {
+      await Promise.all(
+        [...selectedIds].map((id) =>
+          v1Fetch(`/catalog/items/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ status: "archived" }),
+          }),
+        ),
+      );
+      clearSelection();
+      await loadItems();
+      selectLineFilter("archive");
+    } catch (e) {
+      setArchiveErr(e instanceof Error ? e.message : "Ошибка при архивировании");
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function bulkDelete() {
+    if (!selectedIds.size) return;
+    if (
+      !window.confirm(
+        `Удалить ${selectedIds.size} позиций безвозвратно? Действие необратимо.`,
+      )
+    ) return;
+    setBulkBusy(true);
+    setArchiveErr(null);
+    try {
+      await Promise.all(
+        [...selectedIds].map((id) =>
+          v1Fetch(`/catalog/items/${id}`, { method: "DELETE" }),
+        ),
+      );
+      clearSelection();
+      await loadItems();
+    } catch (e) {
+      setArchiveErr(e instanceof Error ? e.message : "Ошибка при удалении");
+    } finally {
+      setBulkBusy(false);
+    }
+  }
 
   const setCatalogViewMode = useCallback((mode: CatalogViewMode) => {
     setViewMode(mode);
@@ -1119,6 +1236,9 @@ export function ContentCatalog() {
             ) : (
               <CatalogTable
                 items={filteredArchived}
+                selectedIds={selectedIds}
+                onToggle={toggleSelectItem}
+                onSelectAll={selectAll}
                 renderRowActions={(item) => (
                   <span className="inline-flex flex-wrap gap-1.5 justify-end">
                     <button
@@ -1207,6 +1327,9 @@ export function ContentCatalog() {
             ) : (
               <CatalogTable
                 items={filteredContent}
+                selectedIds={selectedIds}
+                onToggle={toggleSelectItem}
+                onSelectAll={selectAll}
                 renderRowActions={(item) => (
                   <button
                     type="button"
@@ -1326,6 +1449,49 @@ export function ContentCatalog() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Floating bulk action bar */}
+      {selectedIds.size > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 24 }}
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl border border-border bg-card px-5 py-3 shadow-xl"
+        >
+          <span className="text-sm font-bold text-foreground">
+            {selectedIds.size} выбрано
+          </span>
+          <div className="h-5 w-px bg-border" />
+          <button
+            type="button"
+            disabled={bulkBusy}
+            onClick={() => void bulkArchive()}
+            className="flex items-center gap-1.5 rounded border border-border bg-muted px-3 py-1.5 text-xs font-bold text-foreground hover:bg-muted/70 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+          >
+            <Archive size={14} strokeWidth={2.5} />
+            В архив
+          </button>
+          {canAdminDelete && (
+            <button
+              type="button"
+              disabled={bulkBusy}
+              onClick={() => void bulkDelete()}
+              className="flex items-center gap-1.5 rounded border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs font-bold text-destructive hover:bg-destructive/20 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+            >
+              <Trash2 size={14} strokeWidth={2.5} />
+              Удалить
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={clearSelection}
+            className="ml-1 rounded p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            aria-label="Снять выбор"
+          >
+            <X size={16} strokeWidth={2.5} />
+          </button>
+        </motion.div>
+      )}
 
       <AlertDialog
         open={archiveTarget !== null}

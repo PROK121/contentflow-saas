@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -22,18 +23,46 @@ import {
 } from "lucide-react";
 import { BackgroundEffects } from "../BackgroundEffects";
 
-const navItems = [
-  { path: "/", label: "Панель", icon: LayoutDashboard },
-  { path: "/content", label: "Контент", icon: Film },
-  { path: "/platform-forecast", label: "Прогноз", icon: BarChart3 },
-  { path: "/grades", label: "Грейды", icon: BadgePercent },
-  { path: "/deals", label: "Сделки", icon: Handshake },
-  { path: "/offers", label: "Офферы", icon: FileStack },
-  { path: "/contracts", label: "Контракты", icon: FileText },
-  { path: "/payments", label: "Платежи", icon: DollarSign },
-  { path: "/tasks", label: "Задачи", icon: CheckSquare },
-  { path: "/rights-base", label: "База прав", icon: BookMarked },
-  { path: "/counterparties", label: "Контрагенты", icon: Users },
+type NavItem = { path: string; label: string; icon: React.ComponentType<{ className?: string; strokeWidth?: number }> };
+type NavGroup = { label: string; items: NavItem[] };
+
+const navGroups: NavGroup[] = [
+  {
+    label: "Главная",
+    items: [
+      { path: "/", label: "Панель", icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: "Работа",
+    items: [
+      { path: "/deals", label: "Сделки", icon: Handshake },
+      { path: "/offers", label: "Офферы", icon: FileStack },
+      { path: "/contracts", label: "Контракты", icon: FileText },
+      { path: "/tasks", label: "Задачи", icon: CheckSquare },
+    ],
+  },
+  {
+    label: "Контент",
+    items: [
+      { path: "/content", label: "Контент", icon: Film },
+      { path: "/platform-forecast", label: "Прогноз", icon: BarChart3 },
+      { path: "/grades", label: "Грейды", icon: BadgePercent },
+      { path: "/rights-base", label: "База прав", icon: BookMarked },
+    ],
+  },
+  {
+    label: "Финансы",
+    items: [
+      { path: "/payments", label: "Платежи", icon: DollarSign },
+    ],
+  },
+  {
+    label: "Партнёры",
+    items: [
+      { path: "/counterparties", label: "Контрагенты", icon: Users },
+    ],
+  },
 ];
 
 function navClassName(active: boolean) {
@@ -181,26 +210,42 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             className="mt-2 w-full min-w-0 border-t border-white/20 pt-2"
             aria-label="Разделы"
           >
-            {/* Узкие экраны: перенос строк; lg+: одна полоса на всю ширину, доли поровну — без «кома» по центру */}
-            <div className="flex w-full min-w-0 flex-wrap items-stretch justify-center gap-x-1 gap-y-1.5 sm:justify-evenly md:gap-x-1.5 xl:flex-nowrap xl:justify-between xl:gap-1">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const active = isNavActive(pathname, item.path);
-                return (
-                  <Link
-                    key={item.path}
-                    href={item.path}
-                    title={item.label}
-                    className={`${navClassName(active)} w-[calc(50%-0.25rem)] max-w-[11.5rem] sm:w-auto sm:max-w-[10.5rem] md:max-w-none xl:min-w-0 xl:max-w-none xl:flex-1 xl:basis-0`}
-                  >
-                    <Icon
-                      className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5 xl:h-4 xl:w-4"
-                      strokeWidth={2}
-                    />
-                    <span className="min-w-0 text-center xl:truncate">{item.label}</span>
-                  </Link>
-                );
-              })}
+            <div className="flex w-full min-w-0 flex-wrap items-end gap-x-0 gap-y-1.5 xl:flex-nowrap xl:gap-x-0">
+              {navGroups.map((group, gi) => (
+                <div key={group.label} className="flex min-w-0 flex-col items-stretch">
+                  {/* Divider between groups */}
+                  <div className="flex min-w-0 items-end gap-x-0.5 sm:gap-x-1">
+                    {gi > 0 && (
+                      <div className="mx-1 hidden h-7 w-px self-end bg-white/20 sm:block xl:h-8" />
+                    )}
+                    <div className="flex flex-col items-start gap-0.5">
+                      <span className="hidden pl-1 text-[9px] font-semibold uppercase tracking-widest text-white/40 xl:block">
+                        {group.label}
+                      </span>
+                      <div className="flex flex-wrap items-stretch gap-x-0.5 gap-y-1 sm:gap-x-1 xl:flex-nowrap xl:gap-x-0.5">
+                        {group.items.map((item) => {
+                          const Icon = item.icon;
+                          const active = isNavActive(pathname, item.path);
+                          return (
+                            <Link
+                              key={item.path}
+                              href={item.path}
+                              title={item.label}
+                              className={`${navClassName(active)} w-[calc(50vw-1.5rem)] max-w-[8rem] sm:w-auto sm:max-w-[7.5rem] md:max-w-none xl:min-w-0 xl:max-w-none xl:flex-1 xl:basis-0`}
+                            >
+                              <Icon
+                                className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5 xl:h-4 xl:w-4"
+                                strokeWidth={2}
+                              />
+                              <span className="min-w-0 text-center xl:truncate">{item.label}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </nav>
         </div>

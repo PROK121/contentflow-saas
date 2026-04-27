@@ -9,6 +9,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/figma/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter as AlertDialogFooterEl,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/figma/components/ui/alert-dialog";
 import { Button } from "@/figma/components/ui/button";
 import { Input } from "@/figma/components/ui/input";
 import { Label } from "@/figma/components/ui/label";
@@ -153,6 +163,7 @@ export function CreateDealWizard(props: {
 
   const [newCatalogOpen, setNewCatalogOpen] = useState(false);
   const [newCatalogFormKey, setNewCatalogFormKey] = useState(0);
+  const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
 
   // Дополнительные поля (общие для продажи и закупа)
   const [signedAt, setSignedAt] = useState("");
@@ -470,9 +481,49 @@ export function CreateDealWizard(props: {
     }
   }
 
+  const isDirty =
+    buyerOrgId !== "" ||
+    titleSuffix !== "" ||
+    catalogIds.length > 0 ||
+    expectedValue !== "" ||
+    signedAt !== "" ||
+    paymentModel !== "" ||
+    minimumGuarantee !== "";
+
+  function handleOpenChange(v: boolean) {
+    if (!v && isDirty) {
+      setCloseConfirmOpen(true);
+      return;
+    }
+    onOpenChange(v);
+  }
+
   return (
     <>
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog open={closeConfirmOpen} onOpenChange={setCloseConfirmOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Закрыть визард?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Вы уже заполнили некоторые поля. При закрытии введённые данные будут потеряны.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooterEl>
+          <AlertDialogCancel>Продолжить заполнение</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={() => {
+              setCloseConfirmOpen(false);
+              onOpenChange(false);
+            }}
+          >
+            Закрыть без сохранения
+          </AlertDialogAction>
+        </AlertDialogFooterEl>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
