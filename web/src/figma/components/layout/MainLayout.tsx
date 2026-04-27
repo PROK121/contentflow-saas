@@ -144,7 +144,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
       {/* Header */}
       <header className="border-b bg-primary text-primary-foreground shadow-md relative z-10">
-        <div className="px-3 py-2 sm:px-5 sm:py-2.5 md:px-6">
+        <div className="px-3 py-1.5 sm:px-5 sm:py-2 md:px-6">
           {/* Строка 1: логотип и служебные кнопки; навигация — отдельной полосой на всю ширину, без горизонтального скролла */}
           <div className="flex w-full min-w-0 items-center justify-between gap-2">
             <Link
@@ -207,44 +207,34 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <nav
-            className="mt-2 w-full min-w-0 border-t border-white/20 pt-2"
+            className="mt-1.5 w-full min-w-0 border-t border-white/20 pt-1.5"
             aria-label="Разделы"
           >
-            <div className="flex w-full min-w-0 flex-wrap items-end gap-x-0 gap-y-1.5 xl:flex-nowrap xl:gap-x-0">
+            <div className="flex w-full min-w-0 flex-wrap items-center gap-x-0 gap-y-1 xl:flex-nowrap xl:gap-x-0">
               {navGroups.map((group, gi) => (
-                <div key={group.label} className="flex min-w-0 flex-col items-stretch">
-                  {/* Divider between groups */}
-                  <div className="flex min-w-0 items-end gap-x-0.5 sm:gap-x-1">
-                    {gi > 0 && (
-                      <div className="mx-1 hidden h-7 w-px self-end bg-white/20 sm:block xl:h-8" />
-                    )}
-                    <div className="flex flex-col items-start gap-0.5">
-                      <span className="hidden pl-1 text-[9px] font-semibold uppercase tracking-widest text-white/40 xl:block">
-                        {group.label}
-                      </span>
-                      <div className="flex flex-wrap items-stretch gap-x-0.5 gap-y-1 sm:gap-x-1 xl:flex-nowrap xl:gap-x-0.5">
-                        {group.items.map((item) => {
-                          const Icon = item.icon;
-                          const active = isNavActive(pathname, item.path);
-                          return (
-                            <Link
-                              key={item.path}
-                              href={item.path}
-                              title={item.label}
-                              className={`${navClassName(active)} w-[calc(50vw-1.5rem)] max-w-[8rem] sm:w-auto sm:max-w-[7.5rem] md:max-w-none xl:min-w-0 xl:max-w-none xl:flex-1 xl:basis-0`}
-                            >
-                              <Icon
-                                className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5 xl:h-4 xl:w-4"
-                                strokeWidth={2}
-                              />
-                              <span className="min-w-0 text-center xl:truncate">{item.label}</span>
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <React.Fragment key={group.label}>
+                  {gi > 0 && (
+                    <div className="mx-1 hidden h-5 w-px shrink-0 bg-white/25 sm:block" />
+                  )}
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    const active = isNavActive(pathname, item.path);
+                    return (
+                      <Link
+                        key={item.path}
+                        href={item.path}
+                        title={`${group.label}: ${item.label}`}
+                        className={`${navClassName(active)} w-[calc(50vw-1.5rem)] max-w-[8rem] sm:w-auto sm:max-w-[7.5rem] md:max-w-none xl:min-w-0 xl:max-w-none xl:flex-1 xl:basis-0`}
+                      >
+                        <Icon
+                          className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5 xl:h-4 xl:w-4"
+                          strokeWidth={2}
+                        />
+                        <span className="min-w-0 text-center xl:truncate">{item.label}</span>
+                      </Link>
+                    );
+                  })}
+                </React.Fragment>
               ))}
             </div>
           </nav>
