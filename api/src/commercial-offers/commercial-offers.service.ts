@@ -11,6 +11,10 @@ import * as path from 'path';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  CreateManualCommercialOfferDto,
+  ManualOfferStatusDto,
+} from './dto/create-manual-commercial-offer.dto';
+import {
   CreateCommercialOfferDto,
   OfferTemplateKindDto,
 } from './dto/create-commercial-offer.dto';
@@ -73,6 +77,15 @@ export class CommercialOffersService {
             templateKindRaw === OfferTemplateKindDto.platforms
               ? OfferTemplateKindDto.platforms
               : OfferTemplateKindDto.po;
+          const manualStatusRaw = p?.manualStatus;
+          const manualStatus =
+            manualStatusRaw === ManualOfferStatusDto.agreed
+              ? ManualOfferStatusDto.agreed
+              : manualStatusRaw === ManualOfferStatusDto.on_review
+                ? ManualOfferStatusDto.on_review
+                : undefined;
+          const dealId = typeof p?.dealId === 'string' ? p.dealId : undefined;
+          const dealTitle = typeof p?.dealTitle === 'string' ? p.dealTitle : undefined;
           return {
             id: row.id,
             title: row.title,
@@ -85,6 +98,9 @@ export class CommercialOffersService {
             updatedAt: row.updatedAt,
             clientLegalName,
             templateKind,
+            dealId,
+            dealTitle,
+            manualStatus,
           };
         }),
       );
@@ -169,6 +185,52 @@ export class CommercialOffersService {
       data: {
         id,
         title: dto.workTitle,
+        payload: JSON.parse(
+          JSON.stringify(payloadForStore),
+        ) as Prisma.InputJsonValue,
+        storageKey,
+        clientSigned: false,
+      },
+    });
+    return {
+      id: row.id,
+      title: row.title,
+      storageKey,
+      createdAt: row.createdAt,
+    };
+  }
+
+  async createManual(
+    dto: CreateManualCommercialOfferDto,
+    file: Express.Multer.File | undefined,
+  ) {
+    if (!file) throw new BadRequestException('Файл оффера обязателен');
+    const deal = await this.prisma.deal.findUnique({
+      where: { id: dto.dealId },
+      include: { buyer: true },
+    });
+    if (!deal) throw new BadRequestException('Сделка не найдена');
+    const id = randomUUID();
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    const storageKey = path.join('commercial-offers', 'manual', `${id}${ext}`);
+    const abs = path.join(uploadRoot(), storageKey);
+    mkdirSync(path.dirname(abs), { recursive: true });
+    await writeFile(abs, file.buffer);
+    const payloadForStore = {
+      manual: true,
+      dealId: deal.id,
+      dealTitle: deal.title,
+      clientLegalName: deal.buyer?.legalName ?? '',
+      templateKind: dto.templateKind,
+      manualStatus: dto.status,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      uploadedAt: new Date().toISOString(),
+    };
+    const row = await this.prisma.commercialOffer.create({
+      data: {
+        id,
+        title: `Ручной оффер: ${deal.title}`,
         payload: JSON.parse(
           JSON.stringify(payloadForStore),
         ) as Prisma.InputJsonValue,

@@ -105,6 +105,7 @@ type ContractApiRow = {
   id: string;
   dealId: string;
   number: string;
+  templateId?: string | null;
   status: string;
   territory: string;
   termEndAt: string;
@@ -150,6 +151,7 @@ export function Contracts() {
   const [contractsTab, setContractsTab] = useState<"active" | "signed" | "archive">(
     "active",
   );
+  const [contractKindTab, setContractKindTab] = useState<"po" | "platform">("po");
   const [archiveBusyId, setArchiveBusyId] = useState<string | null>(null);
   const [authEmail, setAuthEmail] = useState<string | null>(null);
   const [deleteContractBusyId, setDeleteContractBusyId] = useState<string | null>(null);
@@ -255,21 +257,28 @@ export function Contracts() {
     if (contractsTab === "signed") setSelectedStatus(null);
   }, [contractsTab]);
 
-  const filteredContracts = useMemo(() => {
+  const kindScopedRows = useMemo(() => {
     return rows.filter((c) => {
+      const isPlatform = (c.templateId ?? "").startsWith("contract-platform:");
+      return contractKindTab === "platform" ? isPlatform : !isPlatform;
+    });
+  }, [rows, contractKindTab]);
+
+  const filteredContracts = useMemo(() => {
+    return kindScopedRows.filter((c) => {
       const matchesStatus =
         !selectedStatus || c.status === selectedStatus;
       return matchesStatus;
     });
-  }, [rows, selectedStatus]);
+  }, [kindScopedRows, selectedStatus]);
 
   const statusCounts = useMemo(() => {
-    const acc: Record<string, number> = { all: rows.length };
+    const acc: Record<string, number> = { all: kindScopedRows.length };
     for (const key of Object.keys(CONTRACT_STATUS)) {
-      acc[key] = rows.filter((c) => c.status === key).length;
+      acc[key] = kindScopedRows.filter((c) => c.status === key).length;
     }
     return acc;
-  }, [rows]);
+  }, [kindScopedRows]);
 
   async function openCreate(kind: ContractCreateKind) {
     setCreateKind(kind);
@@ -486,6 +495,33 @@ export function Contracts() {
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
+          onClick={() => setContractKindTab("po")}
+          className={cn(
+            "px-4 py-2 rounded font-semibold transition-all text-sm",
+            contractKindTab === "po"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "bg-card border border-border hover:bg-muted/30",
+          )}
+        >
+          Контракты для ПО
+        </button>
+        <button
+          type="button"
+          onClick={() => setContractKindTab("platform")}
+          className={cn(
+            "px-4 py-2 rounded font-semibold transition-all text-sm",
+            contractKindTab === "platform"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "bg-card border border-border hover:bg-muted/30",
+          )}
+        >
+          Контракты для площадки
+        </button>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
           onClick={() => setContractsTab("active")}
           className={cn(
             "px-4 py-2 rounded font-semibold transition-all text-sm",
@@ -615,7 +651,7 @@ export function Contracts() {
         </p>
       )}
 
-      {!loading && !loadErr && rows.length === 0 && (
+      {!loading && !loadErr && kindScopedRows.length === 0 && (
         <div className="rounded-lg border border-border bg-card p-8 text-center space-y-3">
           <p className="text-sm text-muted-foreground">
             {contractsTab === "archive"
@@ -659,7 +695,7 @@ export function Contracts() {
 
       {!loading &&
         !loadErr &&
-        rows.length > 0 &&
+        kindScopedRows.length > 0 &&
         filteredContracts.length === 0 && (
           <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border bg-muted/20 py-10 text-center">
             <Search className="size-8 text-muted-foreground/50" />

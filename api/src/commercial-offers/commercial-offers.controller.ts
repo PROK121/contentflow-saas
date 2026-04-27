@@ -10,13 +10,27 @@ import {
   Query,
   Req,
   StreamableFile,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
 import type { Request } from 'express';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { assertAdminDeleteUser } from '../auth/admin-delete';
 import type { AuthUserView } from '../auth/auth-user.types';
+import { documentMimeFilter } from '../common/multer-mime-filter';
+import { CreateManualCommercialOfferDto } from './dto/create-manual-commercial-offer.dto';
 import { CreateCommercialOfferDto } from './dto/create-commercial-offer.dto';
 import { PatchCommercialOfferDto } from './dto/patch-commercial-offer.dto';
 import { CommercialOffersService } from './commercial-offers.service';
+
+function manualOfferUploadOptions() {
+  return {
+    storage: memoryStorage(),
+    limits: { fileSize: 35 * 1024 * 1024 },
+    fileFilter: documentMimeFilter,
+  };
+}
 
 @Controller('commercial-offers')
 export class CommercialOffersController {
@@ -42,6 +56,15 @@ export class CommercialOffersController {
   @Post()
   create(@Body() body: CreateCommercialOfferDto) {
     return this.commercialOffersService.create(body);
+  }
+
+  @Post('manual')
+  @UseInterceptors(FileInterceptor('file', manualOfferUploadOptions()))
+  createManual(
+    @Body() body: CreateManualCommercialOfferDto,
+    @UploadedFile() file: Express.Multer.File | undefined,
+  ) {
+    return this.commercialOffersService.createManual(body, file);
   }
 
   @Patch(':id')

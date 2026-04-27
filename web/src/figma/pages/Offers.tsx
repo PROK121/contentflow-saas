@@ -13,7 +13,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { v1DownloadFile, v1Fetch, v1GetBlob } from "@/lib/v1-client";
+import { v1DownloadFile, v1Fetch, v1FormUpload, v1GetBlob } from "@/lib/v1-client";
 import { tr } from "@/lib/i18n";
 import { formatMoneyAmountOrEmpty } from "@/lib/format-money";
 import {
@@ -43,6 +43,8 @@ const SEQUEL_DEFAULT =
 
 type ApiDealBuyer = {
   id: string;
+  title: string;
+  kind: "po" | "platform";
   buyerOrgId: string;
   buyer: { legalName: string };
 };
@@ -60,9 +62,13 @@ type CommercialOfferRow = {
   clientSigned?: boolean;
   signedAt?: string | null;
   sourceOfferId?: string | null;
+  dealId?: string;
+  dealTitle?: string;
+  manualStatus?: "on_review" | "agreed";
 };
 
 type DealClientOption = { buyerOrgId: string; legalName: string };
+type DealOption = { id: string; title: string; kind: "po" | "platform"; buyer?: { legalName: string } };
 type DealPaymentPreviewLite = { net: string };
 
 type CatalogPickRow = {
@@ -204,6 +210,7 @@ export function Offers() {
   const [deleteOfferBusyId, setDeleteOfferBusyId] = useState<string | null>(null);
   const canAdminDelete = isAdminDeleteEmail(authEmail);
   const [dealClients, setDealClients] = useState<DealClientOption[]>([]);
+  const [dealOptions, setDealOptions] = useState<DealOption[]>([]);
   const [catalogPickList, setCatalogPickList] = useState<CatalogPickRow[]>([]);
   const [offerCatalogItemId, setOfferCatalogItemId] = useState("");
   const [offerDialogOpen, setOfferDialogOpen] = useState(false);
@@ -213,6 +220,13 @@ export function Offers() {
   const [offerError, setOfferError] = useState<string | null>(null);
   const [offerDownloadId, setOfferDownloadId] = useState<string | null>(null);
   const [offerDownloadError, setOfferDownloadError] = useState<string | null>(null);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualDealId, setManualDealId] = useState("");
+  const [manualTemplateKind, setManualTemplateKind] = useState<OfferTemplateKind>("po");
+  const [manualStatus, setManualStatus] = useState<"on_review" | "agreed">("on_review");
+  const [manualFile, setManualFile] = useState<File | null>(null);
+  const [manualBusy, setManualBusy] = useState(false);
+  const [manualErr, setManualErr] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewTitle, setPreviewTitle] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -317,6 +331,16 @@ export function Offers() {
   const loadDealClients = useCallback(async () => {
     try {
       const deals = await v1Fetch<ApiDealBuyer[]>("/deals");
+      setDealOptions(
+        deals
+          .map((d) => ({
+            id: d.id,
+            title: d.title,
+            kind: d.kind,
+            buyer: d.buyer,
+          }))
+          .sort((a, b) => a.title.localeCompare(b.title, "ru")),
+      );
       const byOrg = new Map<string, string>();
       for (const d of deals) {
         const name = d.buyer?.legalName?.trim();
@@ -328,8 +352,11 @@ export function Offers() {
         .map(([buyerOrgId, legalName]) => ({ buyerOrgId, legalName }))
         .sort((a, b) => a.legalName.localeCompare(b.legalName, "ru"));
       setDealClients(opts);
+      setManualDealId((prev) => (prev && deals.some((d) => d.id === prev) ? prev : deals[0]?.id ?? ""));
     } catch {
       setDealClients([]);
+      setDealOptions([]);
+      setManualDealId("");
     }
   }, []);
 
@@ -405,6 +432,35 @@ export function Offers() {
       setOfferError(e instanceof Error ? e.message : tr("crm", "offersCreateError"));
     } finally {
       setOfferSubmitting(false);
+    }
+  };
+
+  const submitManualOffer = async () => {
+    if (!manualDealId) {
+      setManualErr("Выберите сделку");
+      return;
+    }
+    if (!manualFile) {
+      setManualErr("Прикрепите файл оффера");
+      return;
+    }
+    setManualErr(null);
+    setManualBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("dealId", manualDealId);
+      fd.append("templateKind", manualTemplateKind);
+      fd.append("status", manualStatus);
+      fd.append("file", manualFile);
+      await v1FormUpload("/commercial-offers/manual", fd);
+      setManualOpen(false);
+      setManualFile(null);
+      setManualStatus("on_review");
+      await loadOffers();
+    } catch (e) {
+      setManualErr(e instanceof Error ? e.message : "Не удалось загрузить оффер");
+    } finally {
+      setManualBusy(false);
     }
   };
 
@@ -505,6 +561,21 @@ export function Offers() {
           >
             <Plus size={18} strokeWidth={2.5} />
             <span>{tr("crm", "offersCreatePlatforms")}</span>
+          </button>
+          <button
+            type="button"
+            className="flex shrink-0 items-center gap-2 whitespace-nowrap px-4 py-2.5 border border-border bg-card text-foreground rounded hover:bg-muted/40 transition-colors text-sm font-semibold shadow-sm"
+            onClick={() => {
+              setManualErr(null);
+              setManualFile(null);
+              setManualStatus("on_review");
+              setManualTemplateKind("po");
+              void loadDealClients();
+              setManualOpen(true);
+            }}
+          >
+            <Plus size={18} strokeWidth={2.5} />
+            <span>Прикрепить оффер вручную</span>
           </button>
         </div>
       </motion.div>
@@ -628,6 +699,14 @@ export function Offers() {
                   {o.clientLegalName ? (
                     <p className="text-sm font-medium text-foreground">
                       Клиент: {o.clientLegalName}
+                    </p>
+                  ) : null}
+                  {o.dealTitle ? (
+                    <p className="text-sm text-muted-foreground">Сделка: {o.dealTitle}</p>
+                  ) : null}
+                  {o.manualStatus ? (
+                    <p className="text-xs text-muted-foreground">
+                      Статус: {o.manualStatus === "agreed" ? "Согласовано" : "На рассмотрении"}
                     </p>
                   ) : null}
                   <p className="text-xs text-muted-foreground">
@@ -787,6 +866,82 @@ export function Offers() {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={manualOpen} onOpenChange={setManualOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Прикрепить оффер вручную</DialogTitle>
+            <DialogDescription>
+              Файл будет привязан к выбранной сделке и отображаться в общем списке офферов.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="manualDealId">Сделка</Label>
+              <select
+                id="manualDealId"
+                className={fieldClass}
+                value={manualDealId}
+                onChange={(e) => setManualDealId(e.target.value)}
+              >
+                <option value="">Выберите сделку…</option>
+                {dealOptions.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.title} · {d.kind === "platform" ? "Площадка" : "ПО"}
+                    {d.buyer?.legalName ? ` · ${d.buyer.legalName}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="manualTemplateKind">Тип оффера</Label>
+              <select
+                id="manualTemplateKind"
+                className={fieldClass}
+                value={manualTemplateKind}
+                onChange={(e) => setManualTemplateKind(e.target.value as OfferTemplateKind)}
+              >
+                <option value="po">Для ПО</option>
+                <option value="platforms">Для площадки</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="manualStatus">Статус</Label>
+              <select
+                id="manualStatus"
+                className={fieldClass}
+                value={manualStatus}
+                onChange={(e) => setManualStatus(e.target.value as "on_review" | "agreed")}
+              >
+                <option value="on_review">На рассмотрении</option>
+                <option value="agreed">Согласовано</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="manualFile">Файл оффера</Label>
+              <input
+                id="manualFile"
+                type="file"
+                className={fieldClass}
+                onChange={(e) => setManualFile(e.target.files?.[0] ?? null)}
+              />
+            </div>
+          </div>
+          {manualErr ? <p className="text-sm text-destructive">{manualErr}</p> : null}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setManualOpen(false)}>
+              Отмена
+            </Button>
+            <Button
+              type="button"
+              disabled={manualBusy || !manualDealId || !manualFile}
+              onClick={() => void submitManualOffer()}
+            >
+              {manualBusy ? "Загрузка…" : "Сохранить"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
