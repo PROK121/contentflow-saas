@@ -33,6 +33,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { v1Fetch, v1DownloadFile } from "@/lib/v1-client";
+import { tr } from "@/lib/i18n";
 import { Button } from "@/figma/components/ui/button";
 import { Input } from "@/figma/components/ui/input";
 import { Label } from "@/figma/components/ui/label";
@@ -79,22 +80,22 @@ const CONTRACT_STATUS: Record<
   }
 > = {
   draft: {
-    label: "Черновик",
+    label: tr("crm", "contractsStatusDraft"),
     color: "bg-muted/50 text-muted-foreground border border-border",
     icon: FileText,
   },
   sent: {
-    label: "Отправлен",
+    label: tr("crm", "contractsStatusSent"),
     color: "bg-warning/15 text-warning border border-warning/30",
     icon: Send,
   },
   signed: {
-    label: "Подписан",
+    label: tr("crm", "contractsStatusSigned"),
     color: "bg-success/15 text-success border border-success/30",
     icon: CheckCircle,
   },
   expired: {
-    label: "Неактуален",
+    label: tr("crm", "contractsStatusExpired"),
     color: "bg-destructive/15 text-destructive border border-destructive/30",
     icon: Ban,
   },
@@ -411,11 +412,11 @@ export function Contracts() {
         className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
       >
         <div>
-          <h1 className="text-2xl font-bold text-foreground mb-1">Контракты</h1>
+          <h1 className="text-2xl font-bold text-foreground mb-1">
+            {tr("crm", "contractsTitle")}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Реестр по данным CRM: статусы, сделки, версии PDF. Новый черновик —
-            контракт с ПО или с площадкой (выбор OTT). Подписанные документы из
-            кабинета клиента — во вкладке «Подписанные контракты».
+            {tr("crm", "contractsSubtitle")}
           </p>
         </div>
         <div className="flex flex-row flex-nowrap items-center gap-2 shrink-0">
@@ -428,7 +429,7 @@ export function Contracts() {
             disabled={!filteredContracts.length}
           >
             <FileDown className="size-4 mr-1.5" />
-            Экспорт CSV
+            {tr("crm", "contractsExportCsv")}
           </Button>
           <Button
             type="button"
@@ -437,7 +438,7 @@ export function Contracts() {
             onClick={() => void openCreate("po")}
           >
             <Plus className="size-4 mr-1.5" />
-            Создать контракт с ПО
+            {tr("crm", "contractsCreatePo")}
           </Button>
           <Button
             type="button"
@@ -447,7 +448,7 @@ export function Contracts() {
             onClick={() => void openCreate("platform")}
           >
             <Plus className="size-4 mr-1.5" />
-            Создать контракт с Площадкой
+            {tr("crm", "contractsCreatePlatform")}
           </Button>
         </div>
       </motion.div>
@@ -463,7 +464,7 @@ export function Contracts() {
             }}
             className="text-sm font-semibold text-primary underline-offset-4 hover:underline"
           >
-            Повторить
+            {tr("crm", "contractsRetry")}
           </button>
         </div>
       )}
@@ -479,7 +480,7 @@ export function Contracts() {
               : "bg-card border border-border hover:bg-muted/30",
           )}
         >
-          Активные
+          {tr("crm", "contractsTabActive")}
         </button>
         <button
           type="button"
@@ -491,7 +492,7 @@ export function Contracts() {
               : "bg-card border border-border hover:bg-muted/30",
           )}
         >
-          Подписанные контракты
+          {tr("crm", "contractsTabSigned")}
         </button>
         <button
           type="button"
@@ -503,7 +504,7 @@ export function Contracts() {
               : "bg-card border border-border hover:bg-muted/30",
           )}
         >
-          Архив
+          {tr("crm", "contractsTabArchive")}
         </button>
       </div>
 
@@ -519,7 +520,7 @@ export function Contracts() {
               : "bg-card border border-border hover:bg-muted/30",
           )}
         >
-          Все
+          {tr("crm", "contractsFilterAll")}
           <span className="ml-2 px-2 py-0.5 rounded-full bg-current/20 text-xs font-bold">
             {statusCounts.all ?? 0}
           </span>
@@ -564,7 +565,7 @@ export function Contracts() {
           />
           <input
             type="text"
-            placeholder="Номер, сделка, правообладатель…"
+            placeholder={tr("crm", "contractsSearchPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full rounded-md border border-border/50 bg-input-background pl-10 pr-4 py-2.5 text-sm focus:outline-none focus-visible:border-ring/80 focus-visible:ring-2 focus-visible:ring-ring/25"
@@ -579,7 +580,7 @@ export function Contracts() {
             onClick={() => setCatalogViewMode("grid")}
           >
             <LayoutGrid className="size-4" strokeWidth={2.25} />
-            Карточки
+            {tr("crm", "contractsViewCards")}
           </Button>
           <Button
             type="button"
@@ -589,13 +590,15 @@ export function Contracts() {
             onClick={() => setCatalogViewMode("table")}
           >
             <Table2 className="size-4" strokeWidth={2.25} />
-            Таблица
+            {tr("crm", "contractsViewTable")}
           </Button>
         </div>
       </div>
 
       {loading && !loadErr && (
-        <p className="text-sm text-muted-foreground">Загрузка…</p>
+        <p className="text-sm text-muted-foreground">
+          {tr("crm", "contractsLoading")}
+        </p>
       )}
 
       {!loading && !loadErr && rows.length === 0 && (
@@ -775,7 +778,7 @@ export function Contracts() {
                     <Button type="button" size="sm" asChild>
                       <Link href={`/contracts/${contract.id}`}>
                         <Eye size={14} strokeWidth={2.5} className="mr-1.5" />
-                        Открыть
+                        {tr("crm", "contractsOpen")}
                       </Link>
                     </Button>
                     <Button
@@ -788,7 +791,9 @@ export function Contracts() {
                       {dlBusyId === contract.id
                         ? <Loader2 size={14} className="animate-spin mr-1.5" />
                         : <Download size={14} strokeWidth={2.5} className="mr-1.5" />}
-                      {dlBusyId === contract.id ? "Скачивание…" : "Скачать PDF"}
+                      {dlBusyId === contract.id
+                        ? tr("crm", "contractsDownloading")
+                        : tr("crm", "contractsDownloadPdf")}
                     </Button>
                     <Button
                       type="button"
@@ -810,8 +815,8 @@ export function Contracts() {
                       {archiveBusyId === contract.id
                         ? "…"
                         : contractsTab === "active" || contractsTab === "signed"
-                          ? "В архив"
-                          : "Вернуть"}
+                          ? tr("crm", "contractsToArchive")
+                          : tr("crm", "contractsRestore")}
                     </Button>
                     {contractsTab === "archive" && canAdminDelete ? (
                       <Button
@@ -822,7 +827,9 @@ export function Contracts() {
                         onClick={() => setConfirmDeleteContractId(contract.id)}
                       >
                         <Trash2 size={14} strokeWidth={2.5} className="mr-1.5" />
-                        {deleteContractBusyId === contract.id ? "…" : "Удалить"}
+                        {deleteContractBusyId === contract.id
+                          ? "…"
+                          : tr("crm", "contractsDelete")}
                       </Button>
                     ) : null}
                   </div>
@@ -990,8 +997,8 @@ export function Contracts() {
           <DialogHeader>
             <DialogTitle>
               {createKind === "platform"
-                ? "Создать контракт с Площадкой"
-                : "Создать контракт с ПО"}
+                ? tr("crm", "contractsCreateTitlePlatform")
+                : tr("crm", "contractsCreateTitlePo")}
             </DialogTitle>
           </DialogHeader>
           <p className="text-xs text-muted-foreground">
@@ -1002,7 +1009,7 @@ export function Contracts() {
               : null}
           </p>
           <div className="space-y-2">
-            <Label>Сделка</Label>
+            <Label>{tr("crm", "contractsDealLabel")}</Label>
             <select
               className="w-full rounded-md border border-border/50 bg-input-background px-3 py-2 text-sm"
               value={createDealId}
@@ -1018,7 +1025,7 @@ export function Contracts() {
           </div>
           {createKind === "platform" ? (
             <div className="space-y-2">
-              <Label>Площадка</Label>
+              <Label>{tr("crm", "contractsPlatformLabel")}</Label>
               <select
                 className="w-full rounded-md border border-border/50 bg-input-background px-3 py-2 text-sm"
                 value={createPlatformKey}
@@ -1037,14 +1044,16 @@ export function Contracts() {
           ) : null}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
-              Отмена
+              {tr("crm", "contractsCancel")}
             </Button>
             <Button
               type="button"
               disabled={createBusy}
               onClick={() => void submitCreate()}
             >
-              {createBusy ? "Создание…" : "Создать"}
+              {createBusy
+                ? tr("crm", "contractsCreateBusy")
+                : tr("crm", "contractsCreateAction")}
             </Button>
           </DialogFooter>
         </DialogContent>

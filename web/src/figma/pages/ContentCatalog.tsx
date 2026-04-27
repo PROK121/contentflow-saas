@@ -32,6 +32,7 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { v1Fetch } from "@/lib/v1-client";
+import { tr } from "@/lib/i18n";
 import { isAdminDeleteEmail } from "@/lib/admin-delete-email";
 import { formatAssetTypeLabel } from "@/lib/asset-type-labels";
 import { formatPlatformLabel } from "@/lib/catalog-item-create";
@@ -62,23 +63,23 @@ const ASSET_CHIPS: {
   label: string;
   icon?: typeof Film;
 }[] = [
-  { id: "all", label: "Весь контент" },
-  { id: "video", label: "Фильмы", icon: Film },
-  { id: "series", label: "Сериалы", icon: Tv },
+  { id: "all", label: tr("crm", "contentAll") },
+  { id: "video", label: tr("crm", "contentFilms"), icon: Film },
+  { id: "series", label: tr("crm", "contentSeries"), icon: Tv },
   {
     id: "animated_series",
-    label: "Анимационные сериалы",
+    label: tr("crm", "contentAnimatedSeries"),
     icon: Tv,
   },
   {
     id: "animated_film",
-    label: "Анимационные фильмы",
+    label: tr("crm", "contentAnimatedFilms"),
     icon: Film,
   },
-  { id: "anime_series", label: "Анимэ (сериалы)", icon: Sparkles },
-  { id: "anime_film", label: "Анимэ фильмы", icon: Sparkles },
-  { id: "concert_show", label: "Концерты/Шоу", icon: Mic2 },
-  { id: "archive", label: "Архив", icon: Archive },
+  { id: "anime_series", label: tr("crm", "contentAnimeSeries"), icon: Sparkles },
+  { id: "anime_film", label: tr("crm", "contentAnimeFilms"), icon: Sparkles },
+  { id: "concert_show", label: tr("crm", "contentConcerts"), icon: Mic2 },
+  { id: "archive", label: tr("crm", "contentArchive"), icon: Archive },
 ];
 
 const typeIcons = {
@@ -151,9 +152,9 @@ type GridItem = {
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  draft: "Черновик",
-  active: "Активен",
-  archived: "Архив",
+  draft: tr("crm", "contentStatusDraft"),
+  active: tr("crm", "contentStatusActive"),
+  archived: tr("crm", "contentStatusArchived"),
 };
 
 function CatalogTable(props: {
@@ -934,7 +935,7 @@ export function ContentCatalog() {
             />
             <input
               type="text"
-              placeholder="Поиск: название, правообладатель, территория…"
+              placeholder={tr("crm", "contentSearchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full rounded-md border border-border/50 bg-input-background pl-10 pr-4 py-2.5 text-sm focus:outline-none focus-visible:border-ring/80 focus-visible:ring-2 focus-visible:ring-ring/25"
@@ -951,7 +952,7 @@ export function ContentCatalog() {
             )}
           >
             <Filter size={18} />
-            <span>Расширенные фильтры</span>
+            <span>{tr("crm", "contentAdvancedFilters")}</span>
           </button>
         </div>
 
@@ -959,28 +960,28 @@ export function ContentCatalog() {
           <div className="flex flex-wrap gap-4 rounded-lg border border-border bg-card p-4">
             <div>
               <label className="text-xs font-medium text-muted-foreground block mb-1">
-                Статус
+                {tr("crm", "contentFilterStatus")}
               </label>
               <select
                 className="rounded-md border border-border/50 bg-input-background px-3 py-2 text-sm min-w-[160px]"
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
               >
-                <option value="">Все</option>
-                <option value="draft">Черновик</option>
-                <option value="active">Активен</option>
+                <option value="">{tr("crm", "paymentsFilterAll")}</option>
+                <option value="draft">{tr("crm", "contentStatusDraft")}</option>
+                <option value="active">{tr("crm", "contentStatusActive")}</option>
               </select>
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground block mb-1">
-                Правообладатель
+                {tr("crm", "contentFilterHolder")}
               </label>
               <select
                 className="rounded-md border border-border/50 bg-input-background px-3 py-2 text-sm min-w-[200px]"
                 value={filterHolderId}
                 onChange={(e) => setFilterHolderId(e.target.value)}
               >
-                <option value="">Все</option>
+                <option value="">{tr("crm", "paymentsFilterAll")}</option>
                 {rightsHolders.map(([id, name]) => (
                   <option key={id} value={id}>
                     {name}
@@ -997,7 +998,7 @@ export function ContentCatalog() {
                   setFilterHolderId("");
                 }}
               >
-                Сбросить
+                {tr("crm", "contentReset")}
               </button>
             </div>
           </div>
@@ -1049,9 +1050,11 @@ export function ContentCatalog() {
         className="flex flex-col gap-2"
       >
         <div>
-          <h1 className="text-2xl font-bold text-foreground mb-1">Контент</h1>
+          <h1 className="text-2xl font-bold text-foreground mb-1">
+            {tr("crm", "contentTitle")}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Каталог для сделок и PDF; архив — последний чип в строке жанров.
+            {tr("crm", "contentSubtitle")}
           </p>
         </div>
       </motion.div>
@@ -1070,7 +1073,7 @@ export function ContentCatalog() {
             onClick={() => void loadItems()}
             className="text-sm font-semibold text-primary underline-offset-4 hover:underline"
           >
-            Повторить загрузку
+            {tr("crm", "contractsRetry")}
           </button>
         </div>
       )}
@@ -1103,21 +1106,21 @@ export function ContentCatalog() {
             className="flex items-center gap-2 px-4 py-2.5 bg-card border border-border text-foreground rounded hover:bg-muted transition-colors text-sm font-semibold shadow-sm disabled:opacity-50 disabled:pointer-events-none"
           >
             <FileDown size={18} strokeWidth={2.5} />
-            <span>PDF для покупателя</span>
+            <span>{tr("crm", "contentPdfForBuyer")}</span>
           </button>
           <Link
             href="/deals?create=1"
             className="flex items-center gap-2 px-4 py-2.5 bg-card border border-border text-foreground rounded hover:bg-muted transition-colors text-sm font-semibold shadow-sm"
           >
             <Plus size={18} strokeWidth={2.5} />
-            <span>New Deal из каталога</span>
+            <span>{tr("crm", "contentNewDealFromCatalog")}</span>
           </Link>
           <Link
             href="/content/new"
             className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors text-sm font-semibold shadow-sm"
           >
             <Plus size={18} strokeWidth={2.5} />
-            <span>Добавить контент</span>
+            <span>{tr("crm", "contentAdd")}</span>
           </Link>
         </motion.div>
       ) : null}
@@ -1127,7 +1130,7 @@ export function ContentCatalog() {
 
         <div className="flex flex-wrap items-center justify-end gap-2">
           <span className="text-xs text-muted-foreground mr-auto">
-            Вид каталога
+            {tr("crm", "contentViewLabel")}
           </span>
           <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/30">
             <Button
@@ -1138,7 +1141,7 @@ export function ContentCatalog() {
               onClick={() => setCatalogViewMode("grid")}
             >
               <LayoutGrid className="size-4" strokeWidth={2.25} />
-              Карточки
+              {tr("crm", "contractsViewCards")}
             </Button>
             <Button
               type="button"
@@ -1148,7 +1151,7 @@ export function ContentCatalog() {
               onClick={() => setCatalogViewMode("table")}
             >
               <Table2 className="size-4" strokeWidth={2.25} />
-              Таблица
+              {tr("crm", "contractsViewTable")}
             </Button>
           </div>
         </div>
@@ -1162,7 +1165,7 @@ export function ContentCatalog() {
 
             {loading && !loadErr && (
               <p className="text-sm text-muted-foreground">
-                Загрузка каталога…
+                {tr("crm", "contentLoadingCatalog")}
               </p>
             )}
 
@@ -1213,7 +1216,7 @@ export function ContentCatalog() {
                           <ArchiveRestore size={14} strokeWidth={2.5} />
                           {restoreBusyId === item.id
                             ? "Восстановление…"
-                            : "Восстановить"}
+                            : tr("crm", "contentRestore")}
                         </button>
                         {canAdminDelete ? (
                           <button
@@ -1225,7 +1228,7 @@ export function ContentCatalog() {
                             <Trash2 size={14} strokeWidth={2.5} />
                             {deleteCatalogBusyId === item.id
                               ? "Удаление…"
-                              : "Удалить"}
+                              : tr("crm", "contractsDelete")}
                           </button>
                         ) : null}
                       </span>
@@ -1250,7 +1253,7 @@ export function ContentCatalog() {
                       <ArchiveRestore size={14} strokeWidth={2.5} />
                       {restoreBusyId === item.id
                         ? "Восстановление…"
-                        : "Восстановить"}
+                        : tr("crm", "contentRestore")}
                     </button>
                     {canAdminDelete ? (
                       <button
@@ -1260,7 +1263,9 @@ export function ContentCatalog() {
                         className="inline-flex items-center justify-center gap-1 rounded border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-xs font-bold text-destructive shadow-sm transition-colors hover:bg-destructive/15 disabled:pointer-events-none disabled:opacity-50 whitespace-nowrap"
                       >
                         <Trash2 size={14} strokeWidth={2.5} />
-                        {deleteCatalogBusyId === item.id ? "…" : "Удалить"}
+                        {deleteCatalogBusyId === item.id
+                          ? "…"
+                          : tr("crm", "contractsDelete")}
                       </button>
                     ) : null}
                   </span>
@@ -1272,7 +1277,7 @@ export function ContentCatalog() {
           <>
             {loading && !loadErr && (
               <p className="text-sm text-muted-foreground">
-                Загрузка каталога…
+                {tr("crm", "contentLoadingCatalog")}
               </p>
             )}
 
@@ -1318,7 +1323,7 @@ export function ContentCatalog() {
                         className="inline-flex items-center justify-center gap-1 rounded border border-border bg-card px-3 py-2 text-xs font-bold text-foreground shadow-sm transition-colors hover:bg-muted"
                       >
                         <Archive size={14} strokeWidth={2.5} />
-                        В архив
+                        {tr("crm", "contentToArchive")}
                       </button>
                     }
                   />
@@ -1340,7 +1345,7 @@ export function ContentCatalog() {
                     className="inline-flex items-center justify-center gap-1 rounded border border-border bg-card px-2.5 py-1.5 text-xs font-bold text-foreground shadow-sm transition-colors hover:bg-muted whitespace-nowrap"
                   >
                     <Archive size={14} strokeWidth={2.5} />
-                    В архив
+                    {tr("crm", "contentToArchive")}
                   </button>
                 )}
               />
@@ -1359,7 +1364,7 @@ export function ContentCatalog() {
         <DialogContent className="sm:max-w-2xl max-h-[min(90vh,820px)] flex flex-col gap-0 p-0 overflow-hidden">
           <div className="p-6 pb-4 border-b border-border space-y-2">
             <DialogHeader className="space-y-2 text-left">
-              <DialogTitle>Каталог в PDF для покупателя</DialogTitle>
+              <DialogTitle>{tr("crm", "contentPdfForBuyer")}</DialogTitle>
               <DialogDescription>
                 Выберите тайтлы для включения в PDF. Список соответствует
                 текущим фильтрам страницы ({filteredContent.length}{" "}
@@ -1377,7 +1382,7 @@ export function ContentCatalog() {
                   )
                 }
               >
-                Выбрать все
+                {tr("crm", "contentSelectAll")}
               </Button>
               <Button
                 type="button"
@@ -1385,10 +1390,10 @@ export function ContentCatalog() {
                 size="sm"
                 onClick={() => setPdfModalSelectedIds(new Set())}
               >
-                Снять выбор
+                {tr("crm", "contentDeselect")}
               </Button>
               <span className="text-sm text-muted-foreground self-center">
-                Выбрано: {pdfModalSelectedIds.size}
+                {tr("crm", "contentSelected")}: {pdfModalSelectedIds.size}
               </span>
             </div>
           </div>
@@ -1437,14 +1442,16 @@ export function ContentCatalog() {
               onClick={() => setPdfModalOpen(false)}
               disabled={pdfLoading}
             >
-              Отмена
+              {tr("crm", "contractsCancel")}
             </Button>
             <Button
               type="button"
               disabled={!pdfModalSelectedIds.size || pdfLoading}
               onClick={() => void confirmBuyerCatalogPdf()}
             >
-              {pdfLoading ? "Формирование…" : "Сформировать PDF"}
+              {pdfLoading
+                ? tr("crm", "contentGeneratingPdf")
+                : tr("crm", "contentGeneratePdf")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1469,7 +1476,7 @@ export function ContentCatalog() {
             className="flex items-center gap-1.5 rounded border border-border bg-muted px-3 py-1.5 text-xs font-bold text-foreground hover:bg-muted/70 disabled:opacity-50 disabled:pointer-events-none transition-colors"
           >
             <Archive size={14} strokeWidth={2.5} />
-            В архив
+            {tr("crm", "contentToArchive")}
           </button>
           {canAdminDelete && (
             <button
@@ -1479,14 +1486,14 @@ export function ContentCatalog() {
               className="flex items-center gap-1.5 rounded border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs font-bold text-destructive hover:bg-destructive/20 disabled:opacity-50 disabled:pointer-events-none transition-colors"
             >
               <Trash2 size={14} strokeWidth={2.5} />
-              Удалить
+              {tr("crm", "contractsDelete")}
             </button>
           )}
           <button
             type="button"
             onClick={clearSelection}
             className="ml-1 rounded p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-            aria-label="Снять выбор"
+            aria-label={tr("crm", "contentDeselect")}
           >
             <X size={16} strokeWidth={2.5} />
           </button>
@@ -1517,7 +1524,9 @@ export function ContentCatalog() {
               disabled={archiveBusy}
               onClick={() => void confirmSendToArchive()}
             >
-              {archiveBusy ? "Сохранение…" : "В архив"}
+              {archiveBusy
+                ? tr("crm", "contentSaving")
+                : tr("crm", "contentToArchive")}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

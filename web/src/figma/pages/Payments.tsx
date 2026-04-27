@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { motion } from "motion/react";
 import { v1Fetch } from "@/lib/v1-client";
+import { tr } from "@/lib/i18n";
 import { formatMoneyAmount } from "@/lib/format-money";
 import { Button } from "@/figma/components/ui/button";
 import { Input } from "@/figma/components/ui/input";
@@ -72,11 +73,11 @@ type PayoutRow = {
 };
 
 const statusLabels: Record<string, string> = {
-  pending: "Ожидает",
-  partially_paid: "Частично",
-  paid: "Оплачено",
-  overdue: "Просрочено",
-  cancelled: "Отменён",
+  pending: tr("crm", "paymentStatusPending"),
+  partially_paid: tr("crm", "paymentStatusPartiallyPaid"),
+  paid: tr("crm", "paymentStatusPaid"),
+  overdue: tr("crm", "paymentStatusOverdue"),
+  cancelled: tr("crm", "paymentStatusCancelled"),
 };
 
 const statusStyle: Record<string, string> = {
@@ -328,17 +329,16 @@ export function Payments() {
       >
         <div>
           <h1 className="text-2xl font-bold text-foreground mb-1">
-            Платежи и роялти
+            {tr("crm", "paymentsTitle")}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Поступления и исходящие платежи по сделкам; выплаты правообладателям
-            из учёта роялти
+            {tr("crm", "paymentsSubtitle")}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" onClick={() => void exportCsv()}>
             <Download className="size-4 mr-2" />
-            Экспорт CSV
+            {tr("crm", "paymentsExportCsv")}
           </Button>
         </div>
       </motion.div>
@@ -396,7 +396,7 @@ export function Payments() {
           onClick={() => setMainTab("all")}
         >
           <List className="size-4 mr-1" />
-          Все
+          {tr("crm", "paymentsTabAll")}
         </Button>
         <Button
           type="button"
@@ -405,7 +405,7 @@ export function Payments() {
           onClick={() => setMainTab("inbound")}
         >
           <ArrowDownLeft className="size-4 mr-1" />
-          Поступления
+          {tr("crm", "paymentsTabInbound")}
         </Button>
         <Button
           type="button"
@@ -414,7 +414,7 @@ export function Payments() {
           onClick={() => setMainTab("outbound")}
         >
           <ArrowUpRight className="size-4 mr-1" />
-          Исходящие
+          {tr("crm", "paymentsTabOutbound")}
         </Button>
         <Button
           type="button"
@@ -423,28 +423,30 @@ export function Payments() {
           onClick={() => setMainTab("payouts")}
         >
           <Wallet className="size-4 mr-1" />
-          Выплаты роялти
+          {tr("crm", "paymentsTabPayouts")}
         </Button>
       </div>
 
       {mainTab !== "payouts" ? (
         <div className="flex flex-wrap gap-3 items-end rounded-lg border border-border bg-card p-4">
           <div className="space-y-1">
-            <Label className="text-xs">Статус</Label>
+            <Label className="text-xs">{tr("crm", "paymentsFilterStatus")}</Label>
             <select
               className="w-[180px] rounded-md border border-border/50 bg-input-background px-3 py-2 text-sm"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
-              <option value="">Все</option>
-              <option value="pending">Ожидает</option>
-              <option value="partially_paid">Частично</option>
-              <option value="paid">Оплачено</option>
-              <option value="overdue">Просрочено</option>
+              <option value="">{tr("crm", "paymentsFilterAll")}</option>
+              <option value="pending">{tr("crm", "paymentStatusPending")}</option>
+              <option value="partially_paid">{tr("crm", "paymentStatusPartiallyPaid")}</option>
+              <option value="paid">{tr("crm", "paymentStatusPaid")}</option>
+              <option value="overdue">{tr("crm", "paymentStatusOverdue")}</option>
             </select>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Сделка / контрагент</Label>
+            <Label className="text-xs">
+              {tr("crm", "paymentsFilterDealCounterparty")}
+            </Label>
             <select
               className="w-[200px] rounded-md border border-border/50 bg-input-background px-3 py-2 text-sm"
               value={dealKindFilter}
@@ -454,22 +456,22 @@ export function Payments() {
                 )
               }
             >
-              <option value="">Все типы</option>
-              <option value="purchase">Покупка</option>
-              <option value="sale">Продажа</option>
+              <option value="">{tr("crm", "paymentsFilterAllTypes")}</option>
+              <option value="purchase">{tr("crm", "paymentsFilterPurchase")}</option>
+              <option value="sale">{tr("crm", "paymentsFilterSale")}</option>
             </select>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Поиск</Label>
+            <Label className="text-xs">{tr("crm", "paymentsFilterSearch")}</Label>
             <Input
-              placeholder="Сделка, контрагент, контракт…"
+              placeholder={tr("crm", "paymentsFilterPlaceholder")}
               value={q}
               onChange={(e) => setQ(e.target.value)}
               className="w-[220px]"
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Срок с</Label>
+            <Label className="text-xs">{tr("crm", "paymentsFilterFrom")}</Label>
             <Input
               type="date"
               value={from}
@@ -477,7 +479,7 @@ export function Payments() {
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">по</Label>
+            <Label className="text-xs">{tr("crm", "paymentsFilterTo")}</Label>
             <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
           </div>
           <Button
@@ -486,7 +488,7 @@ export function Payments() {
             size="sm"
             onClick={() => void loadPayments()}
           >
-            Обновить
+            {tr("crm", "paymentsRefresh")}
           </Button>
         </div>
       ) : null}
@@ -504,20 +506,22 @@ export function Payments() {
           <div className="px-6 py-4 border-b border-border bg-muted/30">
             <h3 className="text-base font-bold text-foreground uppercase tracking-wide">
               {mainTab === "all"
-                ? "Все платежи по сделкам"
+                ? tr("crm", "paymentsSectionAll")
                 : mainTab === "inbound"
-                  ? "Входящие платежи"
-                  : "Исходящие платежи"}
+                  ? tr("crm", "paymentsSectionInbound")
+                  : tr("crm", "paymentsSectionOutbound")}
             </h3>
             <p className="text-xs text-muted-foreground mt-1">
               {presetDealId
-                ? "Отфильтровано по текущей сделке (параметр в адресе)."
-                : "Удержание для входящих считается по TaxProfile покупателя по сделке"}
+                ? tr("crm", "paymentsPresetHint")
+                : tr("crm", "paymentsDefaultHint")}
             </p>
           </div>
           <div className="overflow-x-auto">
             {loading ? (
-              <p className="p-6 text-sm text-muted-foreground">Загрузка…</p>
+              <p className="p-6 text-sm text-muted-foreground">
+                {tr("crm", "paymentsLoading")}
+              </p>
             ) : (
               <table className="w-full">
                 <thead className="bg-muted/50 border-b-2 border-border">
@@ -526,28 +530,28 @@ export function Payments() {
                       ID
                     </th>
                     <th className="text-left px-6 py-3 text-xs font-bold uppercase">
-                      Тип
+                      {tr("crm", "paymentsColType")}
                     </th>
                     <th className="text-left px-6 py-3 text-xs font-bold uppercase">
-                      Сделка / контрагент
+                      {tr("crm", "paymentsFilterDealCounterparty")}
                     </th>
                     <th className="text-left px-6 py-3 text-xs font-bold uppercase">
-                      Сумма
+                      {tr("crm", "paymentsColAmount")}
                     </th>
                     <th className="text-left px-6 py-3 text-xs font-bold uppercase">
-                      Удержание
+                      {tr("crm", "paymentsColWithholding")}
                     </th>
                     <th className="text-left px-6 py-3 text-xs font-bold uppercase">
                       Net
                     </th>
                     <th className="text-left px-6 py-3 text-xs font-bold uppercase">
-                      Срок
+                      {tr("crm", "paymentsColDue")}
                     </th>
                     <th className="text-left px-6 py-3 text-xs font-bold uppercase">
-                      Статус
+                      {tr("crm", "paymentsFilterStatus")}
                     </th>
                     <th className="text-left px-6 py-3 text-xs font-bold uppercase">
-                      Действия
+                      {tr("crm", "paymentsColActions")}
                     </th>
                   </tr>
                 </thead>
@@ -557,8 +561,12 @@ export function Payments() {
                       <td colSpan={9} className="py-12">
                         <div className="flex flex-col items-center gap-2 text-center">
                           <Wallet className="size-8 text-muted-foreground/40" />
-                          <p className="text-sm font-medium text-muted-foreground">Нет платежей по выбранным условиям</p>
-                          <p className="text-xs text-muted-foreground/70">Измените фильтры или создайте платёж из карточки сделки</p>
+                          <p className="text-sm font-medium text-muted-foreground">
+                            {tr("crm", "paymentsEmptyTitle")}
+                          </p>
+                          <p className="text-xs text-muted-foreground/70">
+                            {tr("crm", "paymentsEmptyDescription")}
+                          </p>
                         </div>
                       </td>
                     </tr>
@@ -587,9 +595,9 @@ export function Payments() {
                           </td>
                           <td className="px-6 py-4 text-xs text-muted-foreground">
                             {payment.direction === "inbound"
-                              ? "Входящий"
+                              ? tr("crm", "paymentsDirectionInbound")
                               : payment.direction === "outbound"
-                                ? "Исходящий"
+                                ? tr("crm", "paymentsDirectionOutbound")
                                 : payment.direction}
                           </td>
                           <td className="px-6 py-4">
@@ -641,7 +649,8 @@ export function Payments() {
                             </div>
                             {payment.paidAt ? (
                               <p className="text-[11px] text-muted-foreground mt-0.5">
-                                опл. {fmtDate(payment.paidAt)}
+                                {tr("crm", "paymentsPaidAtPrefix")}{" "}
+                                {fmtDate(payment.paidAt)}
                               </p>
                             ) : null}
                           </td>
@@ -671,7 +680,7 @@ export function Payments() {
                                     })
                                   }
                                 >
-                                  Оплачен
+                                  {tr("crm", "paymentsActionPaid")}
                                 </Button>
                               ) : null}
                               {payment.status === "pending" ? (
@@ -686,7 +695,7 @@ export function Payments() {
                                     })
                                   }
                                 >
-                                  Частично
+                                  {tr("crm", "paymentsActionPartial")}
                                 </Button>
                               ) : null}
                             </div>
@@ -709,10 +718,10 @@ export function Payments() {
           <div className="px-6 py-4 border-b border-border bg-muted/30 flex flex-wrap justify-between gap-2">
             <div>
               <h3 className="text-base font-bold text-foreground uppercase tracking-wide">
-                Выплаты роялти
+                {tr("crm", "payoutsTitle")}
               </h3>
               <p className="text-xs text-muted-foreground mt-1">
-                Записи из расчёта роялти по контрактам (finance/payouts)
+                {tr("crm", "payoutsSubtitle")}
               </p>
             </div>
             <Button
@@ -721,27 +730,29 @@ export function Payments() {
               size="sm"
               onClick={() => void loadPayouts()}
             >
-              Обновить
+              {tr("crm", "paymentsRefresh")}
             </Button>
           </div>
           <div className="overflow-x-auto">
             {loading ? (
-              <p className="p-6 text-sm text-muted-foreground">Загрузка…</p>
+              <p className="p-6 text-sm text-muted-foreground">
+                {tr("crm", "paymentsLoading")}
+              </p>
             ) : (
               <table className="w-full">
                 <thead className="bg-muted/50 border-b-2 border-border">
                   <tr>
                     <th className="text-left px-6 py-3 text-xs font-bold uppercase">
-                      Правообладатель
+                      {tr("crm", "payoutsColHolder")}
                     </th>
                     <th className="text-left px-6 py-3 text-xs font-bold uppercase">
-                      Контракт / сделка
+                      {tr("crm", "payoutsColContractDeal")}
                     </th>
                     <th className="text-left px-6 py-3 text-xs font-bold uppercase">
                       Net
                     </th>
                     <th className="text-left px-6 py-3 text-xs font-bold uppercase">
-                      Дата
+                      {tr("crm", "payoutsColDate")}
                     </th>
                   </tr>
                 </thead>
@@ -751,8 +762,12 @@ export function Payments() {
                       <td colSpan={4} className="py-12">
                         <div className="flex flex-col items-center gap-2 text-center">
                           <TrendingUp className="size-8 text-muted-foreground/40" />
-                          <p className="text-sm font-medium text-muted-foreground">Выплат пока нет</p>
-                          <p className="text-xs text-muted-foreground/70">Выплаты появятся после расчёта роялти по контрактам</p>
+                          <p className="text-sm font-medium text-muted-foreground">
+                            {tr("crm", "payoutsEmptyTitle")}
+                          </p>
+                          <p className="text-xs text-muted-foreground/70">
+                            {tr("crm", "payoutsEmptyDescription")}
+                          </p>
                         </div>
                       </td>
                     </tr>

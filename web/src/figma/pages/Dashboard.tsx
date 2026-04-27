@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
+import { tr } from "@/lib/i18n";
 import { formatMoneyAmount } from "@/lib/format-money";
 import {
   TrendingUp,
@@ -459,9 +460,11 @@ export function Dashboard() {
         className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
       >
         <div>
-          <h1 className="text-2xl font-bold text-foreground mb-1">Обзор</h1>
+          <h1 className="text-2xl font-bold text-foreground mb-1">
+            {tr("crm", "dashboardTitle")}
+          </h1>
           <p className="text-sm text-muted-foreground max-w-2xl">
-            Сводка по сделкам, платежам, контрактам, каталогу и задачам.
+            {tr("crm", "dashboardSubtitle")}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -491,7 +494,7 @@ export function Dashboard() {
             onClick={() => void load()}
           >
             <RefreshCw className={cn("size-4 mr-2", loading && "animate-spin")} />
-            Обновить
+            {tr("crm", "dashboardRefresh")}
           </Button>
         </div>
       </motion.div>
@@ -598,7 +601,7 @@ export function Dashboard() {
                       />
                     )}
                     <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-                      Перейти
+                      {tr("crm", "dashboardGoTo")}
                       <ArrowRight className="size-3" />
                     </span>
                   </div>
@@ -663,7 +666,7 @@ export function Dashboard() {
           </div>
           {loading ? (
             <p className="text-sm text-muted-foreground py-12 text-center">
-              Загрузка…
+              {tr("crm", "dashboardLoading")}
             </p>
           ) : pipelineChartData.every((d) => d.count === 0) ? (
             <p className="text-sm text-muted-foreground py-12 text-center">

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { v1DownloadFile, v1Fetch, v1GetBlob } from "@/lib/v1-client";
+import { tr } from "@/lib/i18n";
 import { formatMoneyAmountOrEmpty } from "@/lib/format-money";
 import {
   catalogToOfferContentFields,
@@ -38,7 +39,7 @@ import { Label } from "@/figma/components/ui/label";
 import { Textarea } from "@/figma/components/ui/textarea";
 
 const SEQUEL_DEFAULT =
-  "Приоритетное право на приобретение прав на продолжение франшизы, спин-оффов (все связанные по сюжету истории). А также новые премьерные фильмы правообладателя.";
+  tr("crm", "offersSequelDefault");
 
 type ApiDealBuyer = {
   id: string;
@@ -129,7 +130,7 @@ function defaultOfferForm(): OfferFormState {
     contentLanguage: "",
     exclusivity: "exclusive",
     territory: "",
-    localization: "Языки/Форматы (дубляж / voice-over / субтитры)",
+    localization: tr("crm", "offersLocalizationDefault"),
     materialsNote: "",
     promoSupport: false,
     catalogInclusion: false,
@@ -263,7 +264,7 @@ export function Offers() {
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return;
       setPreviewError(
-        e instanceof Error ? e.message : "Не удалось загрузить предпросмотр",
+        e instanceof Error ? e.message : tr("crm", "offersPreviewLoadError"),
       );
     } finally {
       if (!ac.signal.aborted) {
@@ -401,7 +402,7 @@ export function Offers() {
       setOfferForm(defaultOfferForm());
       await loadOffers();
     } catch (e) {
-      setOfferError(e instanceof Error ? e.message : "Не удалось создать оффер");
+      setOfferError(e instanceof Error ? e.message : tr("crm", "offersCreateError"));
     } finally {
       setOfferSubmitting(false);
     }
@@ -412,9 +413,7 @@ export function Offers() {
 
   async function deleteOfferForever(id: string) {
     if (
-      !window.confirm(
-        "Удалить оффер безвозвратно вместе с файлом? Действие необратимо.",
-      )
+      !window.confirm(tr("crm", "offersDeleteConfirm"))
     ) {
       return;
     }
@@ -424,7 +423,7 @@ export function Offers() {
       await loadOffers();
     } catch (e) {
       setOfferDownloadError(
-        e instanceof Error ? e.message : "Не удалось удалить",
+        e instanceof Error ? e.message : tr("crm", "offersDeleteError"),
       );
     } finally {
       setDeleteOfferBusyId(null);
@@ -469,11 +468,11 @@ export function Offers() {
         className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
       >
         <div>
-          <h1 className="text-2xl font-bold text-foreground mb-1">Офферы</h1>
+          <h1 className="text-2xl font-bold text-foreground mb-1">
+            {tr("crm", "offersTitle")}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Коммерческие предложения в PDF: оффер для ПО или оффер для площадок.
-            Подписанные экземпляры из кабинета клиента — во вкладке «Подписанные
-            офферы».
+            {tr("crm", "offersSubtitle")}
           </p>
         </div>
         <div className="flex flex-row flex-nowrap items-center gap-2 shrink-0">
@@ -490,7 +489,7 @@ export function Offers() {
             }}
           >
             <Plus size={18} strokeWidth={2.5} />
-            <span>Создать оффер для ПО</span>
+            <span>{tr("crm", "offersCreatePo")}</span>
           </button>
           <button
             type="button"
@@ -505,7 +504,7 @@ export function Offers() {
             }}
           >
             <Plus size={18} strokeWidth={2.5} />
-            <span>Создать оффер для Площадок</span>
+            <span>{tr("crm", "offersCreatePlatforms")}</span>
           </button>
         </div>
       </motion.div>
@@ -520,7 +519,7 @@ export function Offers() {
               : "bg-muted/50 border border-border hover:bg-muted/30"
           }`}
         >
-          Активные
+          {tr("crm", "offersTabActive")}
           {offersTab === "active" ? (
             <span className="ml-2 px-2 py-0.5 rounded-full bg-current/20 text-xs font-bold">
               {offers.length}
@@ -536,7 +535,7 @@ export function Offers() {
               : "bg-muted/50 border border-border hover:bg-muted/30"
           }`}
         >
-          Подписанные офферы
+          {tr("crm", "offersTabSigned")}
           {offersTab === "signed" ? (
             <span className="ml-2 px-2 py-0.5 rounded-full bg-current/20 text-xs font-bold">
               {offers.length}
@@ -552,7 +551,7 @@ export function Offers() {
               : "bg-muted/50 border border-border hover:bg-muted/30"
           }`}
         >
-          Архив
+          {tr("crm", "offersTabArchive")}
           {offersTab === "archive" ? (
             <span className="ml-2 px-2 py-0.5 rounded-full bg-current/20 text-xs font-bold">
               {offers.length}
@@ -568,7 +567,7 @@ export function Offers() {
         />
         <input
           type="text"
-          placeholder="Поиск по названию, клиенту или ID…"
+          placeholder={tr("crm", "offersSearchPlaceholder")}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full rounded-md border border-border/50 bg-input-background pl-10 pr-4 py-2.5 text-sm focus:outline-none focus-visible:border-ring/80 focus-visible:ring-2 focus-visible:ring-ring/25"
@@ -576,16 +575,16 @@ export function Offers() {
       </div>
 
       {offersLoading ? (
-        <p className="text-sm text-muted-foreground">Загрузка…</p>
+        <p className="text-sm text-muted-foreground">{tr("crm", "offersLoading")}</p>
       ) : filteredOffers.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           {offers.length === 0
             ? offersTab === "archive"
-              ? "В архиве пока пусто."
+              ? tr("crm", "offersArchiveEmpty")
               : offersTab === "signed"
-                ? "Здесь появятся подписанные офферы, которые клиент прикрепит в личном кабинете. Кабинет клиента подключается позже — список пока пуст."
-                : "Пока нет офферов. Создайте документ кнопкой «Создать оффер для ПО» или «Создать оффер для Площадок»."
-            : "Ничего не найдено по запросу."}
+                ? tr("crm", "offersSignedEmpty")
+                : tr("crm", "offersActiveEmpty")
+            : tr("crm", "offersSearchEmpty")}
         </p>
       ) : (
         <div className="space-y-4">
@@ -594,7 +593,7 @@ export function Offers() {
           ) : null}
           <div className="flex justify-end">
             <Button type="button" variant="ghost" size="sm" onClick={() => void loadOffers()}>
-              Обновить список
+              {tr("crm", "offersRefresh")}
             </Button>
           </div>
           {filteredOffers.map((o, index) => (
@@ -633,10 +632,10 @@ export function Offers() {
                   ) : null}
                   <p className="text-xs text-muted-foreground">
                     {o.clientSigned || offersTab === "signed"
-                      ? "Файл от клиента"
+                      ? tr("crm", "offersClientFile")
                       : o.templateKind === "platforms"
-                        ? "Оффер для площадок"
-                        : "Оффер для ПО"}
+                        ? tr("crm", "offersKindPlatforms")
+                        : tr("crm", "offersKindPo")}
                   </p>
                   {o.sourceOfferId ? (
                     <p className="text-xs text-muted-foreground">
@@ -664,7 +663,9 @@ export function Offers() {
                     onClick={() => void openPreview(o)}
                   >
                     <Eye size={14} strokeWidth={2.5} />
-                    {previewLoadingOfferId === o.id ? "Загрузка…" : "Просмотр"}
+                    {previewLoadingOfferId === o.id
+                      ? tr("crm", "offersLoading")
+                      : tr("crm", "offersPreview")}
                   </Button>
                   {offersTab === "active" || offersTab === "signed" ? (
                     <Button
@@ -683,7 +684,7 @@ export function Offers() {
                       }}
                     >
                       <Archive size={14} strokeWidth={2.5} />
-                      {archiveBusyId === o.id ? "…" : "В архив"}
+                      {archiveBusyId === o.id ? "…" : tr("crm", "offersToArchive")}
                     </Button>
                   ) : (
                     <>
@@ -703,7 +704,7 @@ export function Offers() {
                         }}
                       >
                         <ArchiveRestore size={14} strokeWidth={2.5} />
-                        {archiveBusyId === o.id ? "…" : "Вернуть"}
+                        {archiveBusyId === o.id ? "…" : tr("crm", "offersRestore")}
                       </Button>
                       {canAdminDelete ? (
                         <Button
@@ -714,7 +715,9 @@ export function Offers() {
                           onClick={() => void deleteOfferForever(o.id)}
                         >
                           <Trash2 size={14} strokeWidth={2.5} />
-                          {deleteOfferBusyId === o.id ? "…" : "Удалить"}
+                          {deleteOfferBusyId === o.id
+                            ? "…"
+                            : tr("crm", "offersDelete")}
                         </Button>
                       ) : null}
                     </>
@@ -730,14 +733,18 @@ export function Offers() {
                       void v1DownloadFile(`/commercial-offers/${o.id}/document`, safe)
                         .catch((e) => {
                           setOfferDownloadError(
-                            e instanceof Error ? e.message : "Не удалось скачать файл",
+                            e instanceof Error
+                              ? e.message
+                              : tr("crm", "offersDownloadError"),
                           );
                         })
                         .finally(() => setOfferDownloadId(null));
                     }}
                   >
                     <Download size={14} strokeWidth={2.5} />
-                    {offerDownloadId === o.id ? "Скачивание…" : "Скачать PDF"}
+                    {offerDownloadId === o.id
+                      ? tr("crm", "offersDownloading")
+                      : tr("crm", "offersDownloadPdf")}
                   </Button>
                 </div>
               </div>
@@ -788,13 +795,13 @@ export function Offers() {
           <DialogHeader>
             <DialogTitle>
               {offerTemplateKind === "platforms"
-                ? "Создать оффер для Площадок"
-                : "Создать оффер для ПО"}
+                ? tr("crm", "offersDialogTitlePlatforms")
+                : tr("crm", "offersDialogTitlePo")}
             </DialogTitle>
             <DialogDescription>
               {offerTemplateKind === "platforms"
-                ? "Оффер для площадок: те же поля, что и для ПО. После сохранения PDF появится в списке."
-                : "Оффер для ПО. После сохранения PDF появится в списке."}
+                ? tr("crm", "offersDialogDescriptionPlatforms")
+                : tr("crm", "offersDialogDescriptionPo")}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -895,7 +902,7 @@ export function Offers() {
                       exclusivity: exclusivityFromCat ?? prev.exclusivity,
                       contentLanguage: prev.contentLanguage.trim()
                         ? prev.contentLanguage
-                        : "русский",
+                        : tr("crm", "offersRussianDefault"),
                     };
                   });
                 }}
@@ -1231,7 +1238,9 @@ export function Offers() {
               }
               onClick={() => void submitOffer()}
             >
-              {offerSubmitting ? "Создание…" : "Сформировать PDF"}
+              {offerSubmitting
+                ? tr("crm", "tasksCreating")
+                : tr("crm", "contentGeneratePdf")}
             </Button>
           </DialogFooter>
         </DialogContent>

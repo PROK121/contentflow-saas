@@ -3,12 +3,13 @@
 import { motion } from "motion/react";
 import { Plus, MoreVertical, User, Calendar, DollarSign, TrendingUp } from "lucide-react";
 import { formatMoneyAmount, parseMoneyNumber } from "@/lib/format-money";
+import { tr } from "@/lib/i18n";
 
 const pipelineStages = [
-  { id: "lead", label: "Лиды", color: "bg-info/15", borderColor: "border-info/30", textColor: "text-info" },
-  { id: "negotiation", label: "Переговоры", color: "bg-warning/15", borderColor: "border-warning/30", textColor: "text-warning" },
-  { id: "contract", label: "Контракт", color: "bg-primary/15", borderColor: "border-primary/30", textColor: "text-primary" },
-  { id: "paid", label: "Оплачено", color: "bg-success/15", borderColor: "border-success/30", textColor: "text-success" },
+  { id: "lead", label: tr("crm", "dealsStageLead"), color: "bg-info/15", borderColor: "border-info/30", textColor: "text-info" },
+  { id: "negotiation", label: tr("crm", "dealsStageNegotiation"), color: "bg-warning/15", borderColor: "border-warning/30", textColor: "text-warning" },
+  { id: "contract", label: tr("crm", "dealsStageContract"), color: "bg-primary/15", borderColor: "border-primary/30", textColor: "text-primary" },
+  { id: "paid", label: tr("crm", "dealsStagePaid"), color: "bg-success/15", borderColor: "border-success/30", textColor: "text-success" },
 ];
 
 const deals = [
@@ -104,14 +105,16 @@ export function Deals() {
         className="flex items-start justify-between"
       >
         <div>
-          <h1 className="text-2xl font-bold text-foreground mb-1">Воронка сделок</h1>
+          <h1 className="text-2xl font-bold text-foreground mb-1">
+            {tr("crm", "dealsTitle")}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Отслеживайте и управляйте лицензионными сделками
+            {tr("crm", "dealsSubtitle")}
           </p>
         </div>
         <button className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors text-sm font-semibold shadow-sm">
           <Plus size={18} strokeWidth={2.5} />
-          <span>Новая сделка</span>
+          <span>{tr("crm", "dealsNew")}</span>
         </button>
       </motion.div>
 
@@ -135,7 +138,9 @@ export function Deals() {
                 <p className="text-xs font-bold text-foreground uppercase tracking-wider">{stage.label}</p>
                 <div className="flex items-baseline gap-2">
                   <p className="text-2xl font-bold text-foreground">{stageDeals.length}</p>
-                  <p className="text-xs text-muted-foreground font-semibold">сделок</p>
+                  <p className="text-xs text-muted-foreground font-semibold">
+                    {tr("crm", "dealsCountMany")}
+                  </p>
                 </div>
                 <p className="text-sm font-bold" style={{ fontFamily: 'var(--font-mono)' }}>
                   {totalValue > 0
@@ -165,7 +170,10 @@ export function Deals() {
               <div className={`rounded-lg ${stage.color} border ${stage.borderColor} p-4 bg-card`}>
                 <h3 className="font-bold text-foreground uppercase tracking-wide text-xs mb-1">{stage.label}</h3>
                 <p className="text-xs text-muted-foreground font-semibold">
-                  {stageDeals.length} {stageDeals.length === 1 ? "сделка" : "сделок"}
+                  {stageDeals.length}{" "}
+                  {stageDeals.length === 1
+                    ? tr("crm", "dealsCountOne")
+                    : tr("crm", "dealsCountMany")}
                 </p>
               </div>
 
@@ -221,7 +229,7 @@ export function Deals() {
                           <div className="flex items-center justify-between text-xs">
                             <span className="text-muted-foreground font-semibold flex items-center gap-1">
                               <TrendingUp size={11} strokeWidth={2.5} />
-                              Вероятность
+                              {tr("crm", "dealsProbability")}
                             </span>
                             <span className="font-bold text-foreground">{deal.probability}%</span>
                           </div>

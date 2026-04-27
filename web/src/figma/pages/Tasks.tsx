@@ -45,6 +45,7 @@ import {
   type SetStateAction,
 } from "react";
 import { v1Fetch } from "@/lib/v1-client";
+import { tr } from "@/lib/i18n";
 import { isAdminDeleteEmail } from "@/lib/admin-delete-email";
 import { getPlatformOwnerUserId } from "@/lib/platform-user";
 import { Button } from "@/figma/components/ui/button";
@@ -174,7 +175,7 @@ function TaskCommentsPanel({ taskId }: { taskId: string }) {
       const rows = await v1Fetch<TaskCommentRow[]>(`/tasks/${taskId}/comments`);
       setItems(rows);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Не удалось загрузить комментарии");
+      setErr(e instanceof Error ? e.message : tr("crm", "tasksCommentsLoadError"));
       setItems([]);
     } finally {
       setLoading(false);
@@ -198,7 +199,7 @@ function TaskCommentsPanel({ taskId }: { taskId: string }) {
       setDraft("");
       await load();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Не удалось отправить");
+      setErr(e instanceof Error ? e.message : tr("crm", "tasksSendError"));
     } finally {
       setBusy(false);
     }
@@ -237,13 +238,13 @@ function TaskCommentsPanel({ taskId }: { taskId: string }) {
           id={`task-comment-${taskId}`}
           className={taClass}
           rows={3}
-          placeholder="Сообщение для команды…"
+          placeholder={tr("crm", "tasksCommentPlaceholder")}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           disabled={busy}
         />
         <Button type="button" size="sm" disabled={busy || !draft.trim()} onClick={() => void submit()}>
-          {busy ? "Отправка…" : "Отправить"}
+          {busy ? tr("crm", "tasksSending") : tr("crm", "tasksSend")}
         </Button>
       </div>
       {err ? <p className="text-xs text-destructive">{err}</p> : null}
@@ -383,7 +384,9 @@ export function Tasks() {
       setManagers(m);
       setMetaErr(null);
     } catch (e) {
-      setMetaErr(e instanceof Error ? e.message : "Не удалось загрузить список исполнителей");
+      setMetaErr(
+        e instanceof Error ? e.message : tr("crm", "tasksAssigneesLoadError"),
+      );
       setManagers([]);
     }
   }, []);
@@ -427,7 +430,7 @@ export function Tasks() {
       setTasks([...todoR.items, ...ipR.items, ...revR.items, ...doneR.items]);
       setPurchaseDealsTodo(Array.isArray(purchaseDealsRes) ? purchaseDealsRes : []);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Не удалось загрузить задачи");
+      setErr(e instanceof Error ? e.message : tr("crm", "tasksLoadError"));
       setTasks([]);
       setDoneTotal(0);
       setPurchaseDealsTodo([]);
@@ -460,7 +463,7 @@ export function Tasks() {
         return merged;
       });
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Не удалось подгрузить выполненные");
+      setErr(e instanceof Error ? e.message : tr("crm", "tasksLoadDoneError"));
     } finally {
       setLoadingMoreDone(false);
     }
@@ -476,7 +479,7 @@ export function Tasks() {
       await loadTasks();
       flashSaved();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Не удалось обновить архив");
+      setErr(e instanceof Error ? e.message : tr("crm", "tasksArchiveUpdateError"));
     } finally {
       setArchiveBusyId(null);
     }
@@ -546,11 +549,11 @@ export function Tasks() {
   async function submitCreate() {
     setCreateErr(null);
     if (!createForm.assigneeId.trim()) {
-      setCreateErr("Выберите исполнителя");
+      setCreateErr(tr("crm", "tasksValidationAssignee"));
       return;
     }
     if (!createForm.title.trim()) {
-      setCreateErr("Укажите название задачи");
+      setCreateErr(tr("crm", "tasksValidationTitle"));
       return;
     }
     const linkErr = validateLink(createForm);
@@ -579,7 +582,7 @@ export function Tasks() {
       setDialogOpen(false);
       await loadTasks();
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Не удалось создать";
+      const msg = e instanceof Error ? e.message : tr("crm", "tasksCreateError");
       setCreateErr(msg);
     } finally {
       setCreateSubmitting(false);
@@ -590,11 +593,11 @@ export function Tasks() {
     if (!editTask) return;
     setEditErr(null);
     if (!editForm.assigneeId.trim()) {
-      setEditErr("Выберите исполнителя");
+      setEditErr(tr("crm", "tasksValidationAssignee"));
       return;
     }
     if (!editForm.title.trim()) {
-      setEditErr("Укажите название задачи");
+      setEditErr(tr("crm", "tasksValidationTitle"));
       return;
     }
     const linkErr = validateLink(editForm);
@@ -623,7 +626,7 @@ export function Tasks() {
       await loadTasks();
       flashSaved();
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Не удалось сохранить";
+      const msg = e instanceof Error ? e.message : tr("crm", "tasksSaveError");
       setEditErr(msg);
     } finally {
       setEditSubmitting(false);
@@ -658,7 +661,7 @@ export function Tasks() {
       }
     } catch (e) {
       setTasks(prev);
-      const msg = e instanceof Error ? e.message : "Не удалось сменить статус";
+      const msg = e instanceof Error ? e.message : tr("crm", "tasksStatusChangeError");
       setTaskErrors((er) => ({ ...er, [taskId]: msg }));
     }
   }
@@ -686,7 +689,7 @@ export function Tasks() {
       setDeleteId(null);
       await loadTasks();
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Не удалось удалить";
+      const msg = e instanceof Error ? e.message : tr("crm", "tasksDeleteError");
       setErr(msg);
     } finally {
       setDeleteBusy(false);
@@ -701,7 +704,7 @@ export function Tasks() {
       setDeleteDealId(null);
       await loadTasks();
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Не удалось удалить сделку";
+      const msg = e instanceof Error ? e.message : tr("crm", "tasksDeleteDealError");
       setErr(msg);
     } finally {
       setDeleteDealBusy(false);
@@ -718,7 +721,7 @@ export function Tasks() {
       });
       await loadTasks();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Не удалось отправить сделку в архив");
+      setErr(e instanceof Error ? e.message : tr("crm", "tasksArchiveDealError"));
     } finally {
       setArchiveDealBusyId(null);
     }
@@ -775,7 +778,7 @@ export function Tasks() {
           <Label htmlFor="task-contract-search">Поиск контракта</Label>
           <Input
             id="task-contract-search"
-            placeholder="Номер или сделка…"
+            placeholder={tr("crm", "tasksContractSearchPlaceholder")}
             value={contractPicklistQ}
             onChange={(e) => setContractPicklistQ(e.target.value)}
             className={fieldClass}
@@ -836,7 +839,7 @@ export function Tasks() {
           id={`${idPrefix}-title`}
           value={form.title}
           onChange={(e) => setForm((s) => ({ ...s, title: e.target.value }))}
-          placeholder="Кратко, что сделать"
+          placeholder={tr("crm", "tasksTitlePlaceholder")}
         />
       </div>
       <div className="space-y-1">
@@ -971,7 +974,7 @@ export function Tasks() {
               Отмена
             </Button>
             <Button type="button" disabled={createSubmitting} onClick={() => void submitCreate()}>
-              {createSubmitting ? "Создание…" : "Создать"}
+              {createSubmitting ? tr("crm", "tasksCreating") : tr("crm", "tasksCreate")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -987,7 +990,9 @@ export function Tasks() {
           <DialogHeader>
             <DialogTitle>Комментарии к задаче</DialogTitle>
             <DialogDescription className="line-clamp-2">
-              {commentTask?.title?.trim() ? commentTask.title : "Без названия"}
+              {commentTask?.title?.trim()
+                ? commentTask.title
+                : tr("crm", "tasksUntitled")}
             </DialogDescription>
           </DialogHeader>
           {commentTask ? <TaskCommentsPanel taskId={commentTask.id} /> : null}
@@ -1024,7 +1029,7 @@ export function Tasks() {
               Отмена
             </Button>
             <Button type="button" disabled={editSubmitting} onClick={() => void submitEdit()}>
-              {editSubmitting ? "Сохранение…" : "Сохранить"}
+              {editSubmitting ? tr("crm", "tasksSaving") : tr("crm", "tasksSave")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1036,9 +1041,11 @@ export function Tasks() {
         className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
       >
         <div>
-          <h1 className="text-2xl font-bold text-foreground mb-1">Задачи</h1>
+          <h1 className="text-2xl font-bold text-foreground mb-1">
+            {tr("crm", "tasksTitle")}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Kanban по статусам, сроки и привязка к сделкам и контрактам
+            {tr("crm", "tasksSubtitle")}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3 justify-end">
@@ -1048,7 +1055,7 @@ export function Tasks() {
               aria-live="polite"
             >
               <Check className="h-3.5 w-3.5 text-success" strokeWidth={2.5} />
-              Сохранено
+              {tr("crm", "tasksSaved")}
             </span>
           ) : null}
           <div className="flex flex-wrap gap-2 items-center">
@@ -1057,10 +1064,10 @@ export function Tasks() {
                 checked={archiveView}
                 onCheckedChange={(v) => setArchiveView(v === true)}
               />
-              Архив
+              {tr("crm", "tasksArchive")}
             </label>
             <Button type="button" variant="outline" size="sm" disabled={loading} onClick={() => void loadTasks()}>
-              Обновить
+              {tr("crm", "tasksRefresh")}
             </Button>
             <Button
               type="button"
@@ -1070,7 +1077,7 @@ export function Tasks() {
               onClick={() => openCreateDialog()}
             >
               <Plus size={18} strokeWidth={2.5} />
-              Новая задача
+              {tr("crm", "tasksNew")}
             </Button>
           </div>
         </div>
@@ -1085,20 +1092,20 @@ export function Tasks() {
           <span className="text-destructive flex-1">{metaErr}</span>
           <Button type="button" variant="outline" size="sm" className="gap-1" onClick={() => void loadMeta()}>
             <RefreshCw size={14} />
-            Повторить
+            {tr("crm", "tasksRetry")}
           </Button>
         </div>
       ) : null}
 
       <div className="rounded-lg border border-border bg-card p-4 space-y-4">
         <div className="space-y-1 min-w-0 max-w-xl">
-          <Label htmlFor="task-search">Поиск</Label>
+          <Label htmlFor="task-search">{tr("crm", "tasksSearch")}</Label>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               id="task-search"
               className={cn(fieldClass, "pl-9")}
-              placeholder="Название или описание…"
+              placeholder={tr("crm", "tasksSearchPlaceholder")}
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
             />
@@ -1106,7 +1113,7 @@ export function Tasks() {
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
           <div className="space-y-1 min-w-[200px] max-w-md flex-1">
-            <Label htmlFor="task-assignee-filter">Исполнитель</Label>
+            <Label htmlFor="task-assignee-filter">{tr("crm", "tasksAssignee")}</Label>
             <select
               id="task-assignee-filter"
               className={fieldClass}
@@ -1118,8 +1125,10 @@ export function Tasks() {
                 else setAssigneeFilter(v);
               }}
             >
-              <option value="">Все исполнители</option>
-              {effectiveUserId ? <option value="mine">Только мои</option> : null}
+              <option value="">{tr("crm", "tasksAllAssignees")}</option>
+              {effectiveUserId ? (
+                <option value="mine">{tr("crm", "tasksMineOnly")}</option>
+              ) : null}
               {managers.map((m) => (
                 <option key={m.id} value={m.id}>
                   {managerLabel(m)}
@@ -1129,28 +1138,30 @@ export function Tasks() {
           </div>
           <label className="flex items-center gap-2 text-sm">
             <Checkbox checked={overdueOnly} onCheckedChange={(v) => setOverdueOnly(v === true)} />
-            Просроченные
+            {tr("crm", "tasksOverdueOnly")}
           </label>
           <label className="flex items-center gap-2 text-sm border-l border-border pl-3 sm:ml-1">
             <Checkbox checked={doneExpanded} onCheckedChange={(v) => setDoneExpanded(v === true)} />
-            Показать все выполненные (в колонке)
+            {tr("crm", "tasksShowAllDone")}
           </label>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Сортировка</span>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              {tr("crm", "tasksSort")}
+            </span>
             <select
               className={cn(fieldClass, "w-auto min-w-[160px]")}
               value={sortMode}
               onChange={(e) => setSortMode(e.target.value as "dueAt" | "priority")}
             >
-              <option value="dueAt">По сроку</option>
-              <option value="priority">По приоритету</option>
+              <option value="dueAt">{tr("crm", "tasksSortByDue")}</option>
+              <option value="priority">{tr("crm", "tasksSortByPriority")}</option>
             </select>
           </div>
           <label className="flex items-center gap-2 text-sm">
             <Checkbox checked={overdueFirst} onCheckedChange={(v) => setOverdueFirst(v === true)} />
-            Просроченные сверху
+            {tr("crm", "tasksOverdueFirst")}
           </label>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -1163,7 +1174,7 @@ export function Tasks() {
                 : "bg-muted/50 border border-border hover:bg-muted/30"
             }`}
           >
-            Все приоритеты
+            {tr("crm", "tasksAllPriorities")}
           </button>
           {(["high", "medium", "low"] as const).map((priority) => {
             const config = priorityConfig[priority];
@@ -1185,7 +1196,7 @@ export function Tasks() {
         </div>
         <p className="text-xs text-muted-foreground">
           {archiveView
-            ? "Показаны задачи из архива. Верните задачу в работу, чтобы снова видеть её в канбане."
+            ? tr("crm", "tasksArchiveHint")
             : `Фильтры и поиск на сервере. Колонка «Выполнено» подгружается порциями по ${TASK_PAGE_SIZE}: кнопка «Загрузить ещё» внизу колонки. По умолчанию в колонке видно до ${DONE_COLUMN_PREVIEW} карточек — включите «Показать все выполненные», чтобы развернуть список.`}
         </p>
       </div>
@@ -1193,11 +1204,11 @@ export function Tasks() {
       {err ? <p className="text-sm text-destructive whitespace-pre-wrap">{err}</p> : null}
 
       {loading && tasks.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Загрузка…</p>
+        <p className="text-sm text-muted-foreground">{tr("crm", "paymentsLoading")}</p>
       ) : archiveView ? (
         <div className="space-y-3">
           {tasks.length === 0 ? (
-            <p className="text-sm text-muted-foreground">В архиве пока нет задач.</p>
+            <p className="text-sm text-muted-foreground">{tr("crm", "tasksInArchive")}</p>
           ) : null}
           {tasks.map((task) => {
             const priority =
@@ -1209,7 +1220,9 @@ export function Tasks() {
                 className="rounded-lg bg-card border border-border p-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3"
               >
                 <div className="min-w-0 flex-1 space-y-2">
-                  <h4 className="font-semibold text-sm">{task.title ?? "Без названия"}</h4>
+                  <h4 className="font-semibold text-sm">
+                    {task.title ?? tr("crm", "tasksUntitled")}
+                  </h4>
                   <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                     <span className="px-2 py-0.5 rounded bg-muted border border-border">
                       {STATUS_COLUMNS.find((c) => c.id === task.status)?.title ?? task.status}
@@ -1231,7 +1244,9 @@ export function Tasks() {
                     onClick={() => void setTaskArchived(task.id, false)}
                   >
                     <ArchiveRestore className="size-3.5 mr-1" />
-                    {archiveBusyId === task.id ? "…" : "Вернуть в работу"}
+                    {archiveBusyId === task.id
+                      ? "…"
+                      : tr("crm", "tasksRestoreToWork")}
                   </Button>
                   {canAdminDelete ? (
                     <Button
@@ -1348,9 +1363,9 @@ export function Tasks() {
                     <ColumnDropZone columnId={column.id} title={column.title}>
                       {columnBodyEmpty ? (
                         <div className="rounded-lg border border-dashed border-border bg-muted/10 px-4 py-6 text-center space-y-3">
-                          <p className="text-sm text-muted-foreground">Нет задач</p>
+                      <p className="text-sm text-muted-foreground">{tr("crm", "tasksNoTasks")}</p>
                           <Button type="button" size="sm" variant="secondary" onClick={() => openCreateDialog()}>
-                            Добавить
+                            {tr("crm", "tasksAdd")}
                           </Button>
                         </div>
                       ) : null}
@@ -1365,7 +1380,7 @@ export function Tasks() {
                         >
                           <div
                             className="shrink-0 px-2 py-4 bg-warning/10 border-r border-border flex items-start justify-center"
-                            title="Сделка покупки — перенос по колонкам недоступен"
+                            title={tr("crm", "tasksDealPinNoDrag")}
                           >
                             <ShoppingCart size={18} className="text-warning" strokeWidth={2.25} />
                           </div>
@@ -1411,7 +1426,7 @@ export function Tasks() {
                                     <button
                                       type="button"
                                       className="p-1 hover:bg-muted/50 rounded transition-colors shrink-0"
-                                      aria-label="Действия со сделкой"
+                                      aria-label={tr("crm", "tasksDealActions")}
                                     >
                                       <MoreVertical size={14} className="text-muted-foreground" />
                                     </button>
@@ -1426,7 +1441,9 @@ export function Tasks() {
                                       onClick={() => void archivePurchaseDeal(deal.id)}
                                     >
                                       <Archive size={14} className="mr-2" />
-                                      {archiveDealBusyId === deal.id ? "…" : "В архив"}
+                                      {archiveDealBusyId === deal.id
+                                        ? "…"
+                                        : tr("crm", "offersToArchive")}
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
                                       className="text-destructive focus:text-destructive"
@@ -1464,7 +1481,7 @@ export function Tasks() {
                                 <button
                                   type="button"
                                   ref={setActivatorNodeRef}
-                                  title="Перетащить в другую колонку"
+                                  title={tr("crm", "tasksDragToColumn")}
                                   className="shrink-0 px-1.5 py-4 text-muted-foreground hover:bg-muted cursor-grab active:cursor-grabbing border-r border-border touch-none"
                                   {...listeners}
                                   {...attributes}
@@ -1475,7 +1492,7 @@ export function Tasks() {
                                   <div className="flex items-start justify-between gap-2">
                                     <div className="min-w-0 flex-1 space-y-2">
                                       <h4 className="font-semibold text-foreground leading-snug text-sm">
-                                        {task.title ?? "Без названия"}
+                                        {task.title ?? tr("crm", "tasksUntitled")}
                                       </h4>
                                       {task.description ? (
                                         <p className="text-xs text-muted-foreground line-clamp-3">
@@ -1492,9 +1509,9 @@ export function Tasks() {
                                           <div className="flex flex-wrap gap-1.5">
                                             <span className="px-2 py-1 rounded bg-muted/80 text-xs font-medium border border-border">
                                               {task.linkedEntityType === "deal"
-                                                ? "Сделка"
+                                                ? tr("crm", "tasksLinkDeal")
                                                 : task.linkedEntityType === "contract"
-                                                  ? "Контракт"
+                                                  ? tr("crm", "tasksLinkContract")
                                                   : task.linkedEntityType}
                                             </span>
                                           </div>
@@ -1529,7 +1546,7 @@ export function Tasks() {
                                             className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
                                           >
                                             <ExternalLink size={12} />
-                                            Объект
+                                            {tr("crm", "tasksObject")}
                                           </Link>
                                         ) : null}
                                       </div>
@@ -1547,7 +1564,7 @@ export function Tasks() {
                                         <button
                                           type="button"
                                           className="p-1 hover:bg-muted/50 rounded transition-colors shrink-0"
-                                          aria-label="Действия"
+                                          aria-label={tr("crm", "tasksActions")}
                                         >
                                           <MoreVertical size={14} className="text-muted-foreground" />
                                         </button>
@@ -1606,7 +1623,11 @@ export function Tasks() {
 
                       {hiddenDone > 0 && !doneExpanded ? (
                         <p className="text-center text-xs text-muted-foreground py-1">
-                          Ещё {hiddenDone} {hiddenDone === 1 ? "задача" : "задач"} — нажмите «Показать все» выше
+                          Ещё {hiddenDone}{" "}
+                          {hiddenDone === 1
+                            ? tr("crm", "tasksOne")
+                            : tr("crm", "tasksMany")}{" "}
+                          — нажмите «Показать все» выше
                         </p>
                       ) : null}
 
@@ -1619,7 +1640,9 @@ export function Tasks() {
                           disabled={loadingMoreDone}
                           onClick={() => void loadMoreDone()}
                         >
-                          {loadingMoreDone ? "Загрузка…" : `Загрузить ещё (${doneLoaded} из ${doneTotal})`}
+                          {loadingMoreDone
+                            ? tr("crm", "paymentsLoading")
+                            : `${tr("crm", "tasksLoadMore")} (${doneLoaded} из ${doneTotal})`}
                         </Button>
                       ) : null}
 
@@ -1630,7 +1653,7 @@ export function Tasks() {
                           onClick={() => openCreateDialog()}
                         >
                           <Plus size={16} strokeWidth={2.5} />
-                          Добавить задачу
+                          {tr("crm", "tasksAddTask")}
                         </button>
                       ) : null}
                     </ColumnDropZone>
@@ -1643,7 +1666,7 @@ export function Tasks() {
             {activeDragTask ? (
               <div className="max-w-[280px] rounded-lg border-2 border-primary bg-card p-3 shadow-xl">
                 <p className="text-sm font-semibold line-clamp-2">
-                  {activeDragTask.title ?? "Без названия"}
+                  {activeDragTask.title ?? tr("crm", "tasksUntitled")}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
                   {managerLabel(activeDragTask.assignee)}

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { v1Fetch } from "@/lib/v1-client";
+import { tr } from "@/lib/i18n";
 import { formatMoneyAmount, formatMoneyAmountOrEmpty } from "@/lib/format-money";
 import { formatAssetTypeLabel } from "@/lib/asset-type-labels";
 import { Input } from "@/figma/components/ui/input";
@@ -116,11 +117,10 @@ export function PlatformForecast() {
       >
         <div>
           <h1 className="text-2xl font-bold text-foreground mb-1">
-            Прогноз прибыли от площадок
+            {tr("crm", "platformForecastTitle")}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Модель распределения запрашиваемой суммы по площадкам с расчетом
-            долей и итоговых денег.
+            {tr("crm", "platformForecastSubtitle")}
           </p>
         </div>
         <Button
@@ -128,20 +128,20 @@ export function PlatformForecast() {
           variant="outline"
           onClick={() => setShares(DEFAULT_SHARES)}
         >
-          Сбросить проценты
+          {tr("crm", "platformForecastResetShares")}
         </Button>
       </motion.div>
 
       <section className="rounded-xl border border-border bg-card p-5 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <Label>Тип контента</Label>
+            <Label>{tr("crm", "platformForecastContentType")}</Label>
             <select
               className="mt-1 w-full rounded-md border border-border/50 bg-input-background px-3 py-2 text-sm"
               value={assetType}
               onChange={(e) => setAssetType(e.target.value)}
             >
-              <option value="">Выберите тип контента…</option>
+              <option value="">{tr("crm", "platformForecastSelectContentType")}</option>
               {assetTypeOptions.map((type) => (
                 <option key={type} value={type}>
                   {formatAssetTypeLabel(type)}
@@ -149,14 +149,16 @@ export function PlatformForecast() {
               ))}
             </select>
             {loading ? (
-              <p className="text-xs text-muted-foreground mt-1">Загрузка…</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {tr("crm", "gradesLoading")}
+              </p>
             ) : null}
           </div>
           <div>
-            <Label>Запрошиваемая сумма от правообладателя (KZT)</Label>
+            <Label>{tr("crm", "platformForecastRequestedAmount")}</Label>
             <Input
               className="mt-1 font-mono"
-              placeholder="Например: 12 000 000"
+              placeholder={tr("crm", "platformForecastAmountPlaceholder")}
               value={requestedAmount}
               onChange={(e) => setRequestedAmount(formatThousandsInput(e.target.value))}
               onBlur={() =>
@@ -171,7 +173,9 @@ export function PlatformForecast() {
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5 space-y-3">
-        <h2 className="text-lg font-semibold">Доли площадок</h2>
+        <h2 className="text-lg font-semibold">
+          {tr("crm", "platformForecastSharesTitle")}
+        </h2>
         <div className="hidden md:grid md:grid-cols-[1fr_140px_180px_220px] gap-2 px-3 text-xs text-muted-foreground font-semibold">
           <p>Площадка</p>
           <p>Процент</p>

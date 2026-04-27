@@ -20,6 +20,7 @@ import {
   FilePlus2,
 } from "lucide-react";
 import { v1ApiPath, v1Fetch, v1DownloadFile } from "@/lib/v1-client";
+import { tr } from "@/lib/i18n";
 import { isAdminDeleteEmail } from "@/lib/admin-delete-email";
 import { formatMoneyAmount } from "@/lib/format-money";
 import { Button } from "@/figma/components/ui/button";
@@ -48,23 +49,23 @@ const STATUS_META: Record<
   { label: string; className: string; icon: typeof FileText }
 > = {
   draft: {
-    label: "Черновик",
+    label: tr("crm", "contractStatusDraft"),
     className:
       "bg-muted/50 text-muted-foreground border border-border",
     icon: FileText,
   },
   sent: {
-    label: "Отправлен",
+    label: tr("crm", "contractStatusSent"),
     className: "bg-warning/15 text-warning border border-warning/30",
     icon: Clock,
   },
   signed: {
-    label: "Подписан",
+    label: tr("crm", "contractStatusSigned"),
     className: "bg-success/15 text-success border border-success/30",
     icon: CheckCircle,
   },
   expired: {
-    label: "Неактуален",
+    label: tr("crm", "contractStatusExpired"),
     className: "bg-destructive/15 text-destructive border border-destructive/30",
     icon: Ban,
   },
@@ -290,7 +291,7 @@ export function ContractDetail({ contractId }: { contractId: string }) {
           className="inline-flex items-center gap-2 text-sm text-primary font-medium hover:underline"
         >
           <ArrowLeft className="size-4" />
-          К списку контрактов
+          {tr("crm", "contractDetailBackList")}
         </Link>
         <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive whitespace-pre-wrap">
           {loadErr}
@@ -301,7 +302,7 @@ export function ContractDetail({ contractId }: { contractId: string }) {
 
   if (!contract) {
     return (
-      <p className="text-sm text-muted-foreground">Загрузка…</p>
+      <p className="text-sm text-muted-foreground">{tr("crm", "gradesLoading")}</p>
     );
   }
 
@@ -318,7 +319,7 @@ export function ContractDetail({ contractId }: { contractId: string }) {
             className="inline-flex items-center gap-2 text-sm text-primary font-medium hover:underline mb-3"
           >
             <ArrowLeft className="size-4" />
-            Контракты
+            {tr("crm", "contractDetailContracts")}
           </Link>
           <motion.div
             initial={{ opacity: 0, y: 12 }}

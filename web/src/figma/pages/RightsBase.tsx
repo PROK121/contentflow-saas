@@ -5,6 +5,7 @@ import { motion } from "motion/react";
 import { v1Fetch } from "@/lib/v1-client";
 import { formatAssetTypeLabel } from "@/lib/asset-type-labels";
 import { formatMoneyAmount } from "@/lib/format-money";
+import { tr } from "@/lib/i18n";
 import {
   formatPremiereCategory,
   readCatalogOfferSourceMeta,
@@ -729,10 +730,11 @@ export function RightsBase() {
   return (
     <div className="space-y-4">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-2xl font-bold text-foreground">База прав</h1>
+        <h1 className="text-2xl font-bold text-foreground">
+          {tr("crm", "rightsBaseTitle")}
+        </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Структура по шаблону «База прав»: вкладки и колонки как в документе. Данные
-          подставляются из каталога, сделок, контрагентов и договоров в CRM.
+          {tr("crm", "rightsBaseSubtitle")}
         </p>
       </motion.div>
 

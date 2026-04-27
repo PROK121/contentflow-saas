@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { v1Fetch } from "@/lib/v1-client";
+import { tr } from "@/lib/i18n";
 import { formatMoneyAmount } from "@/lib/format-money";
 import { Input } from "@/figma/components/ui/input";
 import { Label } from "@/figma/components/ui/label";
@@ -212,30 +213,36 @@ export function GradesPricing() {
   return (
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-2xl font-bold text-foreground">Грейды</h1>
+        <h1 className="text-2xl font-bold text-foreground">
+          {tr("crm", "gradesTitle")}
+        </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Подбор вариантов стоимости по таблице грейдов GRWX.
+          {tr("crm", "gradesSubtitle")}
         </p>
       </motion.div>
 
       <section className="rounded-xl border border-border bg-card p-5 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <Label>Контент</Label>
+            <Label>{tr("crm", "gradesContent")}</Label>
             <select
               className="mt-1 w-full rounded-md border border-border/50 bg-input-background px-3 py-2 text-sm"
               value={catalogId}
               onChange={(e) => setCatalogId(e.target.value)}
             >
-              <option value="">Выберите тайтл…</option>
-              <option value={MANUAL_CONTENT_ID}>Ручной ввод</option>
+              <option value="">{tr("crm", "gradesSelectTitle")}</option>
+              <option value={MANUAL_CONTENT_ID}>{tr("crm", "gradesManual")}</option>
               {catalog.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.title} · {formatAssetTypeLabel(c.assetType)}
                 </option>
               ))}
             </select>
-            {loading ? <p className="text-xs text-muted-foreground mt-1">Загрузка…</p> : null}
+            {loading ? (
+              <p className="text-xs text-muted-foreground mt-1">
+                {tr("crm", "gradesLoading")}
+              </p>
+            ) : null}
           </div>
           {isManualMode ? (
             <div>
