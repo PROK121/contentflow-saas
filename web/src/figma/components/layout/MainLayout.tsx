@@ -22,6 +22,8 @@ import {
   Users,
 } from "lucide-react";
 import { BackgroundEffects } from "../BackgroundEffects";
+import { GlobalSearch } from "./GlobalSearch";
+import { CreateMenu } from "./CreateMenu";
 
 type NavItem = { path: string; label: string; icon: React.ComponentType<{ className?: string; strokeWidth?: number }> };
 type NavGroup = { label: string; items: NavItem[] };
@@ -160,6 +162,12 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                 priority
               />
             </Link>
+
+            {/* Search + Create — fill the empty space */}
+            <div className="flex flex-1 min-w-0 items-center gap-2 px-2">
+              <GlobalSearch />
+              <CreateMenu />
+            </div>
 
             <div className="flex min-w-0 shrink-0 items-center gap-0.5 sm:gap-1 md:border-l md:border-white/25 md:pl-2 lg:pl-3">
               <button
