@@ -1,258 +1,58 @@
 "use client";
 
 import React from "react";
-import Image from "next/image";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
-import { v1Fetch } from "@/lib/v1-client";
-import {
-  LayoutDashboard,
-  Film,
-  Handshake,
-  FileText,
-  FileStack,
-  DollarSign,
-  BarChart3,
-  BadgePercent,
-  CheckSquare,
-  BookMarked,
-  Bell,
-  Settings,
-  Users,
-} from "lucide-react";
+import { Bell, Settings } from "lucide-react";
 import { BackgroundEffects } from "../BackgroundEffects";
+import { Sidebar } from "./Sidebar";
 import { GlobalSearch } from "./GlobalSearch";
 import { CreateMenu } from "./CreateMenu";
-import { tr } from "@/lib/i18n";
-
-type NavItem = { path: string; label: string; icon: React.ComponentType<{ className?: string; strokeWidth?: number }> };
-type NavGroup = { label: string; items: NavItem[] };
-
-function getNavGroups(): NavGroup[] {
-  return [
-    {
-      label: tr("appNav", "groupMain"),
-      items: [{ path: "/", label: tr("appNav", "itemDashboard"), icon: LayoutDashboard }],
-    },
-    {
-      label: tr("appNav", "groupWork"),
-      items: [
-        { path: "/deals", label: tr("appNav", "itemDeals"), icon: Handshake },
-        { path: "/offers", label: tr("appNav", "itemOffers"), icon: FileStack },
-        { path: "/contracts", label: tr("appNav", "itemContracts"), icon: FileText },
-        { path: "/tasks", label: tr("appNav", "itemTasks"), icon: CheckSquare },
-      ],
-    },
-    {
-      label: tr("appNav", "groupContent"),
-      items: [
-        { path: "/content", label: tr("appNav", "itemContent"), icon: Film },
-        { path: "/platform-forecast", label: tr("appNav", "itemForecast"), icon: BarChart3 },
-        { path: "/grades", label: tr("appNav", "itemGrades"), icon: BadgePercent },
-        { path: "/rights-base", label: tr("appNav", "itemRightsBase"), icon: BookMarked },
-      ],
-    },
-    {
-      label: tr("appNav", "groupFinance"),
-      items: [{ path: "/payments", label: tr("appNav", "itemPayments"), icon: DollarSign }],
-    },
-    {
-      label: tr("appNav", "groupPartners"),
-      items: [
-        { path: "/counterparties", label: tr("appNav", "itemCounterparties"), icon: Users },
-      ],
-    },
-  ];
-}
-
-function navClassName(active: boolean) {
-  return `flex min-h-8 items-center justify-center gap-1 rounded px-2 py-1 text-xs font-medium leading-tight transition-all duration-200 sm:min-h-9 sm:px-2.5 sm:text-sm xl:min-h-9 xl:px-2 xl:text-sm ${
-    active
-      ? "bg-white/20 text-white shadow-sm"
-      : "text-white/80 hover:bg-white/10 hover:text-white"
-  }`;
-}
-
-function isNavActive(pathname: string, path: string) {
-  if (path === "/") return pathname === "/";
-  return pathname === path || pathname.startsWith(`${path}/`);
-}
-
-type MeUser = {
-  id: string;
-  email: string;
-  role: string;
-  displayName: string | null;
-};
-
-function userInitials(displayName: string | null, email: string): string {
-  const base = (displayName ?? email).trim();
-  const parts = base.split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-  if (parts.length === 1 && parts[0].length >= 2) {
-    return parts[0].slice(0, 2).toUpperCase();
-  }
-  return email.slice(0, 2).toUpperCase();
-}
-
-function roleLabel(role: string): string {
-  switch (role) {
-    case "admin":
-      return tr("appNav", "roleAdmin");
-    case "manager":
-      return tr("appNav", "roleManager");
-    case "rights_owner":
-      return tr("appNav", "roleRightsOwner");
-    case "client":
-      return tr("appNav", "roleClient");
-    default:
-      return role;
-  }
-}
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const router = useRouter();
-  const [me, setMe] = useState<MeUser | null | undefined>(undefined);
-  const navGroups = getNavGroups();
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await v1Fetch<{ user: MeUser }>("/auth/me");
-        if (!cancelled) setMe(res.user);
-      } catch {
-        if (!cancelled) setMe(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const logout = useCallback(async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.replace("/login");
-    router.refresh();
-  }, [router]);
-
   return (
-    <div className="flex flex-col h-screen bg-background overflow-hidden">
+    <div className="flex h-screen bg-background overflow-hidden">
       <BackgroundEffects />
 
-      {/* Header */}
-      <header className="border-b bg-primary text-primary-foreground shadow-md relative z-10">
-        <div className="px-3 py-1.5 sm:px-5 sm:py-2 md:px-6">
-          {/* Строка 1: логотип и служебные кнопки; навигация — отдельной полосой на всю ширину, без горизонтального скролла */}
-          <div className="flex w-full min-w-0 items-center justify-between gap-2">
-            <Link
-              href="/"
-              className="flex min-w-0 max-w-[min(180px,38vw)] shrink items-center justify-start rounded-lg border border-white/30 bg-white/95 px-2 py-0.5 shadow-sm transition-colors hover:bg-white sm:max-w-[220px] sm:px-2.5 sm:py-1"
+      {/* Left sidebar */}
+      <Sidebar />
+
+      {/* Right: topbar + scrollable content */}
+      <div className="flex flex-1 min-w-0 flex-col relative z-0">
+
+        {/* Topbar */}
+        <header className="glass-topbar flex shrink-0 items-center gap-3 px-4 py-2.5 relative z-10">
+          {/* Search */}
+          <GlobalSearch />
+
+          {/* Right cluster */}
+          <div className="ml-auto flex items-center gap-1.5">
+            <CreateMenu />
+
+            <button
+              type="button"
+              aria-label="Уведомления"
+              className="relative flex h-8 w-8 items-center justify-center rounded-full bg-black/[0.05] text-foreground/60 hover:bg-black/[0.09] hover:text-foreground transition-colors"
             >
-              <Image
-                src="/brand/growix-logo.png"
-                alt="GROWIX CONTENT GROUP"
-                width={220}
-                height={62}
-                className="h-7 w-auto object-contain object-left sm:h-8"
-                priority
-              />
-            </Link>
+              <Bell className="h-[15px] w-[15px]" strokeWidth={1.8} />
+              <span className="absolute right-[7px] top-[7px] h-[7px] w-[7px] rounded-full bg-[#d85a30] ring-2 ring-background" />
+            </button>
 
-            {/* Поиск + создание — заполняют центр шапки */}
-            <div className="flex flex-1 min-w-0 items-center gap-2 px-2">
-              <GlobalSearch />
-              <CreateMenu />
-            </div>
-
-            <div className="flex min-w-0 shrink-0 items-center gap-0.5 sm:gap-1 md:border-l md:border-white/25 md:pl-2 lg:pl-3">
-              <button
-                type="button"
-                className="relative rounded p-1 text-white/80 transition-colors hover:bg-white/10 hover:text-white sm:p-1.5"
-                aria-label={tr("appNav", "notifications")}
-              >
-                <Bell className="h-4 w-4 sm:h-[18px] sm:w-[18px]" strokeWidth={2} />
-                <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-accent sm:right-1 sm:top-1 sm:h-2 sm:w-2" />
-              </button>
-              <button
-                type="button"
-                className="rounded p-1 text-white/80 transition-colors hover:bg-white/10 hover:text-white sm:p-1.5"
-                aria-label={tr("appNav", "settings")}
-              >
-                <Settings className="h-4 w-4 sm:h-[18px] sm:w-[18px]" strokeWidth={2} />
-              </button>
-              <div
-                className="ml-0.5 flex min-w-0 max-w-[5.5rem] items-center gap-1 rounded border border-white/20 bg-white/10 py-0.5 pl-1 pr-0.5 sm:max-w-[9rem] sm:gap-1.5 sm:py-1 sm:pl-1.5 sm:pr-1 lg:max-w-[10.5rem] xl:max-w-[14rem]"
-                title={
-                  me === undefined || !me
-                    ? undefined
-                    : `${me.displayName ?? me.email}\n${roleLabel(me.role)}`
-                }
-              >
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-accent text-[10px] font-bold text-accent-foreground shadow-sm sm:h-7 sm:w-7 sm:text-xs">
-                  {me === undefined
-                    ? "…"
-                    : userInitials(me?.displayName ?? null, me?.email ?? "?")}
-                </div>
-                <p className="hidden min-w-0 truncate text-[10px] font-semibold leading-tight text-white sm:block sm:text-xs">
-                  {me === undefined
-                    ? "…"
-                    : (me?.displayName ?? me?.email ?? "—")}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => void logout()}
-                className="shrink-0 rounded px-1 py-0.5 text-[10px] font-medium text-white/90 hover:bg-white/10 hover:text-white sm:px-1.5 sm:py-1 sm:text-xs"
-              >
-                {tr("appNav", "logout")}
-              </button>
-            </div>
+            <button
+              type="button"
+              aria-label="Настройки"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-black/[0.05] text-foreground/60 hover:bg-black/[0.09] hover:text-foreground transition-colors"
+            >
+              <Settings className="h-[15px] w-[15px]" strokeWidth={1.8} />
+            </button>
           </div>
+        </header>
 
-          <nav
-            className="mt-1.5 w-full min-w-0 border-t border-white/20 pt-1.5"
-            aria-label="Разделы"
-          >
-            <div className="flex w-full min-w-0 flex-wrap items-center gap-x-0 gap-y-1 xl:flex-nowrap xl:gap-x-0">
-              {navGroups.map((group, gi) => (
-                <React.Fragment key={group.label}>
-                  {gi > 0 && (
-                    <div className="mx-1 hidden h-5 w-px shrink-0 bg-white/25 sm:block" />
-                  )}
-                  {group.items.map((item) => {
-                    const Icon = item.icon;
-                    const active = isNavActive(pathname, item.path);
-                    return (
-                      <Link
-                        key={item.path}
-                        href={item.path}
-                        title={`${group.label}: ${item.label}`}
-                        className={`${navClassName(active)} w-[calc(50vw-1.5rem)] max-w-[8rem] sm:w-auto sm:max-w-[7.5rem] md:max-w-none xl:min-w-0 xl:max-w-none xl:flex-1 xl:basis-0`}
-                      >
-                        <Icon
-                          className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5 xl:h-4 xl:w-4"
-                          strokeWidth={2}
-                        />
-                        <span className="min-w-0 text-center xl:truncate">{item.label}</span>
-                      </Link>
-                    );
-                  })}
-                </React.Fragment>
-              ))}
-            </div>
-          </nav>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="flex-1 overflow-auto px-3 py-4 sm:px-5 sm:py-5 md:px-8 md:py-6">
-        <div className="max-w-[1600px] mx-auto">{children}</div>
-      </main>
+        {/* Page content */}
+        <main className="flex-1 overflow-auto px-5 py-5 md:px-8 md:py-6">
+          <div className="max-w-[1600px] mx-auto">
+            {children}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

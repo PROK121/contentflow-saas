@@ -7,47 +7,54 @@
   --font-mono: 'JetBrains Mono', monospace;
 
   /* Палитра GROWIX: лайм #A3C95D, бирюза #69B0AC, глубокий бирюзовый #4A8B83, нейтраль #D8E3D2 */
-  --background: #eef4f1;
-  --foreground: #1e3330;
-  --card: #ffffff;
-  --card-foreground: #1e3330;
+  --background: #dde5de;
+  --foreground: #111a17;
+  --card: rgba(255,255,255,0.82);
+  --card-foreground: #111a17;
   --popover: #ffffff;
-  --popover-foreground: #1e3330;
-  --primary: #4a8b83;
+  --popover-foreground: #111a17;
+  --primary: #1e3d32;
   --primary-foreground: #ffffff;
-  --secondary: #dce8e4;
-  --secondary-foreground: #1e3330;
-  --muted: #e0ebe7;
-  --muted-foreground: #5a6f6a;
-  --accent: #a3c95d;
-  --accent-foreground: #1e3330;
+  --secondary: #eaf2ee;
+  --secondary-foreground: #111a17;
+  --muted: rgba(0,0,0,0.05);
+  --muted-foreground: #5a7060;
+  --accent: #2d9e75;
+  --accent-foreground: #ffffff;
   --destructive: #c53d3d;
   --destructive-foreground: #ffffff;
-  --border: #c5d4ce;
-  --input: #f4f8f6;
-  --input-background: #ffffff;
-  --switch-background: #b8ccc4;
+  --border: rgba(0,0,0,0.08);
+  --input: rgba(0,0,0,0.05);
+  --input-background: rgba(255,255,255,0.9);
+  --switch-background: #a8c4b8;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
   --text-2xl: 1.5rem;
   --text-xl: 1.25rem;
   --text-lg: 1.125rem;
   --text-base: 1rem;
-  --ring: #69b0ac;
-  --chart-1: #4a8b83;
-  --chart-2: #69b0ac;
-  --chart-3: #a3c95d;
-  --chart-4: #5c8f87;
+  --ring: #2d9e75;
+  --chart-1: #1e3d32;
+  --chart-2: #2d9e75;
+  --chart-3: #7fd4af;
+  --chart-4: #4a8b83;
   --chart-5: #94b8b0;
-  --radius: 0.375rem;
-  --sidebar: #f6faf8;
-  --sidebar-foreground: #1e3330;
-  --sidebar-primary: #4a8b83;
+  --radius: 0.75rem;
+  --sidebar: rgba(255,255,255,0.55);
+  --sidebar-foreground: #111a17;
+  --sidebar-primary: #1e3d32;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #dce8e4;
-  --sidebar-accent-foreground: #1e3330;
-  --sidebar-border: #c5d4ce;
-  --sidebar-ring: #69b0ac;
+  --sidebar-accent: rgba(0,0,0,0.04);
+  --sidebar-accent-foreground: #111a17;
+  --sidebar-border: rgba(0,0,0,0.07);
+  --sidebar-ring: #2d9e75;
+  /* iPhone 17 Pro extras */
+  --glass-card: rgba(255,255,255,0.78);
+  --glass-sidebar: rgba(255,255,255,0.55);
+  --glass-topbar: rgba(255,255,255,0.65);
+  --glass-border: rgba(0,0,0,0.06);
+  --radius-card: 1.125rem;
+  --radius-pill: 1.25rem;
 
   --success: #4a8b83;
   --warning: #d4a017;
@@ -119,9 +126,10 @@
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
   --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 8px);
+  --radius-2xl: calc(var(--radius) + 12px);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -205,16 +213,37 @@
 
   /* Enhanced glass morphism utilities */
   .glass-effect {
-    backdrop-filter: blur(40px) saturate(180%);
-    -webkit-backdrop-filter: blur(40px) saturate(180%);
-    background: rgba(255, 255, 255, 0.5);
-    border: 2px solid rgba(255, 255, 255, 0.6);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    background: var(--glass-card);
+    border: 0.5px solid var(--glass-border);
   }
 
   .glass-strong {
-    backdrop-filter: blur(60px) saturate(200%);
-    -webkit-backdrop-filter: blur(60px) saturate(200%);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+  }
+
+  .glass-card {
+    background: var(--glass-card);
+    border: 0.5px solid var(--glass-border);
+    border-radius: var(--radius-card);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .glass-sidebar {
+    background: var(--glass-sidebar);
+    border-right: 0.5px solid var(--glass-border);
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+  }
+
+  .glass-topbar {
+    background: var(--glass-topbar);
+    border-bottom: 0.5px solid var(--glass-border);
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
   }
 
   /**

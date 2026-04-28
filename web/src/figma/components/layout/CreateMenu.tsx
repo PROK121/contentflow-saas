@@ -79,10 +79,10 @@ export function CreateMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Создать новую запись"
-        className={`flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors sm:gap-1.5 sm:px-3 ${
+        className={`flex items-center gap-1.5 rounded-[20px] px-3.5 py-1.5 text-xs font-medium transition-colors ${
           open
-            ? "border-white/40 bg-white/25 text-white"
-            : "border-white/25 bg-white/12 text-white/90 hover:border-white/35 hover:bg-white/20 hover:text-white"
+            ? "bg-[#1e3d32] text-white"
+            : "bg-[#1e3d32] text-white hover:bg-[#163028]"
         }`}
       >
         <Plus className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />

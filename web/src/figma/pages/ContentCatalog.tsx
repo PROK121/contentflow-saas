@@ -169,7 +169,7 @@ function CatalogTable(props: {
   const allSelected = items.length > 0 && items.every((i) => selectedIds?.has(i.id));
   const someSelected = !allSelected && items.some((i) => selectedIds?.has(i.id));
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
+    <div className="overflow-x-auto glass-card">
       <table className="w-full min-w-[880px] text-sm">
         <thead className="bg-muted/50 border-b-2 border-border">
           <tr>
@@ -268,7 +268,7 @@ function CatalogTable(props: {
                     />
                   ) : (
                     <div
-                      className="w-11 h-[4.5rem] rounded-md border border-border shadow-sm"
+                      className="w-11 h-[4.5rem] rounded-md border border-border"
                       style={{ background: item.thumbnail }}
                     />
                   )}
@@ -335,13 +335,13 @@ function CatalogTable(props: {
                   <div className="flex flex-wrap gap-1.5 justify-end">
                     <Link
                       href={`/deals?create=1&catalogItemId=${item.id}`}
-                      className="rounded border border-border bg-card px-2.5 py-1.5 text-xs font-bold text-foreground shadow-sm transition-colors hover:bg-muted whitespace-nowrap"
+                      className="rounded border border-border bg-card px-2.5 py-1.5 text-xs font-bold text-foreground transition-colors hover:bg-muted whitespace-nowrap"
                     >
                       Сделка
                     </Link>
                     <Link
                       href={`/content/${item.id}`}
-                      className="rounded bg-primary px-2.5 py-1.5 text-xs font-bold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 whitespace-nowrap"
+                      className="rounded bg-primary px-2.5 py-1.5 text-xs font-bold text-primary-foreground transition-colors hover:bg-primary/90 whitespace-nowrap"
                     >
                       Подробнее
                     </Link>
@@ -381,7 +381,7 @@ function CatalogGridCard(props: {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04 }}
-      className="group flex flex-row rounded-lg bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 min-h-[200px]"
+      className="group flex flex-row rounded-lg glass-card overflow-hidden hover:shadow-lg transition-all duration-300 min-h-[200px]"
     >
       <div
         className={cn(
@@ -396,11 +396,11 @@ function CatalogGridCard(props: {
               src={`/v1/catalog/items/${item.id}/poster?v=${encodeURIComponent(item.updatedAt)}`}
               alt={item.title}
               loading="lazy"
-              className="max-h-[min(280px,calc(100vh-12rem))] w-full max-w-full object-contain object-center rounded-md shadow-sm"
+              className="max-h-[min(280px,calc(100vh-12rem))] w-full max-w-full object-contain object-center rounded-md"
             />
           ) : (
             <div
-              className="h-full min-h-[168px] w-full max-w-[9.5rem] rounded-md bg-cover bg-center shadow-sm"
+              className="h-full min-h-[168px] w-full max-w-[9.5rem] rounded-md bg-cover bg-center"
               style={{ background: item.thumbnail }}
             />
           )}
@@ -435,7 +435,7 @@ function CatalogGridCard(props: {
                 </span>
               )}
               {item.exclusive && (
-                <span className="flex items-center gap-1 rounded bg-accent px-2.5 py-1 text-xs font-bold text-accent-foreground shadow-sm">
+                <span className="flex items-center gap-1 rounded bg-accent px-2.5 py-1 text-xs font-bold text-accent-foreground">
                   <Star size={11} fill="currentColor" strokeWidth={2.5} />
                   Исключительные права
                 </span>
@@ -477,13 +477,13 @@ function CatalogGridCard(props: {
           <div className="flex flex-wrap justify-end gap-2">
             <Link
               href={`/deals?create=1&catalogItemId=${item.id}`}
-              className="rounded border border-border bg-card px-3 py-2 text-xs font-bold text-foreground shadow-sm transition-colors hover:bg-muted"
+              className="rounded border border-border bg-card px-3 py-2 text-xs font-bold text-foreground transition-colors hover:bg-muted"
             >
               Сделка
             </Link>
             <Link
               href={`/content/${item.id}`}
-              className="rounded bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+              className="rounded bg-primary px-4 py-2 text-xs font-bold text-primary-foreground transition-colors hover:bg-primary/90"
             >
               Подробнее
             </Link>
@@ -957,7 +957,7 @@ export function ContentCatalog() {
         </div>
 
         {advOpen && (
-          <div className="flex flex-wrap gap-4 rounded-lg border border-border bg-card p-4">
+          <div className="flex flex-wrap gap-4 glass-card p-4">
             <div>
               <label className="text-xs font-medium text-muted-foreground block mb-1">
                 {tr("crm", "contentFilterStatus")}
@@ -1019,8 +1019,8 @@ export function ContentCatalog() {
                 onClick={() => selectLineFilter(type.id)}
                 className={`flex items-center gap-2 px-4 py-2 rounded text-sm font-semibold transition-all ${
                   isActive
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "bg-card border border-border hover:bg-muted/30"
+                    ? "bg-primary text-primary-foreground"
+                    : "glass-card hover:bg-muted/30"
                 }`}
               >
                 {Icon && <Icon size={16} strokeWidth={2.5} />}
@@ -1050,7 +1050,7 @@ export function ContentCatalog() {
         className="flex flex-col gap-2"
       >
         <div>
-          <h1 className="text-2xl font-bold text-foreground mb-1">
+          <h1 className="text-[22px] font-semibold tracking-tight text-foreground mb-1">
             {tr("crm", "contentTitle")}
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -1103,21 +1103,21 @@ export function ContentCatalog() {
             type="button"
             disabled={pdfLoading || loading}
             onClick={openBuyerPdfModal}
-            className="flex items-center gap-2 px-4 py-2.5 bg-card border border-border text-foreground rounded hover:bg-muted transition-colors text-sm font-semibold shadow-sm disabled:opacity-50 disabled:pointer-events-none"
+            className="flex items-center gap-2 px-4 py-2.5 glass-card text-foreground rounded hover:bg-muted transition-colors text-sm font-semibold disabled:opacity-50 disabled:pointer-events-none"
           >
             <FileDown size={18} strokeWidth={2.5} />
             <span>{tr("crm", "contentPdfForBuyer")}</span>
           </button>
           <Link
             href="/deals?create=1"
-            className="flex items-center gap-2 px-4 py-2.5 bg-card border border-border text-foreground rounded hover:bg-muted transition-colors text-sm font-semibold shadow-sm"
+            className="flex items-center gap-2 px-4 py-2.5 glass-card text-foreground rounded hover:bg-muted transition-colors text-sm font-semibold"
           >
             <Plus size={18} strokeWidth={2.5} />
             <span>{tr("crm", "contentNewDealFromCatalog")}</span>
           </Link>
           <Link
             href="/content/new"
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors text-sm font-semibold shadow-sm"
+            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors text-sm font-semibold"
           >
             <Plus size={18} strokeWidth={2.5} />
             <span>{tr("crm", "contentAdd")}</span>
@@ -1132,7 +1132,7 @@ export function ContentCatalog() {
           <span className="text-xs text-muted-foreground mr-auto">
             {tr("crm", "contentViewLabel")}
           </span>
-          <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/30">
+          <div className="inline-flex rounded-[18px] border-[0.5px] border-[rgba(0,0,0,0.07)] p-0.5 bg-muted/30">
             <Button
               type="button"
               variant={viewMode === "grid" ? "secondary" : "ghost"}
@@ -1211,7 +1211,7 @@ export function ContentCatalog() {
                           type="button"
                           disabled={restoreBusyId !== null}
                           onClick={() => void restoreFromArchive(item)}
-                          className="inline-flex items-center justify-center gap-1 rounded border border-border bg-card px-3 py-2 text-xs font-bold text-foreground shadow-sm transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
+                          className="inline-flex items-center justify-center gap-1 rounded border border-border bg-card px-3 py-2 text-xs font-bold text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
                         >
                           <ArchiveRestore size={14} strokeWidth={2.5} />
                           {restoreBusyId === item.id
@@ -1223,7 +1223,7 @@ export function ContentCatalog() {
                             type="button"
                             disabled={deleteCatalogBusyId !== null}
                             onClick={() => void deleteCatalogItemForever(item)}
-                            className="inline-flex items-center justify-center gap-1 rounded border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-bold text-destructive shadow-sm transition-colors hover:bg-destructive/15 disabled:pointer-events-none disabled:opacity-50"
+                            className="inline-flex items-center justify-center gap-1 rounded border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-bold text-destructive transition-colors hover:bg-destructive/15 disabled:pointer-events-none disabled:opacity-50"
                           >
                             <Trash2 size={14} strokeWidth={2.5} />
                             {deleteCatalogBusyId === item.id
@@ -1248,7 +1248,7 @@ export function ContentCatalog() {
                       type="button"
                       disabled={restoreBusyId !== null}
                       onClick={() => void restoreFromArchive(item)}
-                      className="inline-flex items-center justify-center gap-1 rounded border border-border bg-card px-2.5 py-1.5 text-xs font-bold text-foreground shadow-sm transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50 whitespace-nowrap"
+                      className="inline-flex items-center justify-center gap-1 rounded border border-border bg-card px-2.5 py-1.5 text-xs font-bold text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50 whitespace-nowrap"
                     >
                       <ArchiveRestore size={14} strokeWidth={2.5} />
                       {restoreBusyId === item.id
@@ -1260,7 +1260,7 @@ export function ContentCatalog() {
                         type="button"
                         disabled={deleteCatalogBusyId !== null}
                         onClick={() => void deleteCatalogItemForever(item)}
-                        className="inline-flex items-center justify-center gap-1 rounded border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-xs font-bold text-destructive shadow-sm transition-colors hover:bg-destructive/15 disabled:pointer-events-none disabled:opacity-50 whitespace-nowrap"
+                        className="inline-flex items-center justify-center gap-1 rounded border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-xs font-bold text-destructive transition-colors hover:bg-destructive/15 disabled:pointer-events-none disabled:opacity-50 whitespace-nowrap"
                       >
                         <Trash2 size={14} strokeWidth={2.5} />
                         {deleteCatalogBusyId === item.id
@@ -1320,7 +1320,7 @@ export function ContentCatalog() {
                           setArchiveErr(null);
                           setArchiveTarget(item);
                         }}
-                        className="inline-flex items-center justify-center gap-1 rounded border border-border bg-card px-3 py-2 text-xs font-bold text-foreground shadow-sm transition-colors hover:bg-muted"
+                        className="inline-flex items-center justify-center gap-1 rounded border border-border bg-card px-3 py-2 text-xs font-bold text-foreground transition-colors hover:bg-muted"
                       >
                         <Archive size={14} strokeWidth={2.5} />
                         {tr("crm", "contentToArchive")}
@@ -1342,7 +1342,7 @@ export function ContentCatalog() {
                       setArchiveErr(null);
                       setArchiveTarget(item);
                     }}
-                    className="inline-flex items-center justify-center gap-1 rounded border border-border bg-card px-2.5 py-1.5 text-xs font-bold text-foreground shadow-sm transition-colors hover:bg-muted whitespace-nowrap"
+                    className="inline-flex items-center justify-center gap-1 rounded border border-border bg-card px-2.5 py-1.5 text-xs font-bold text-foreground transition-colors hover:bg-muted whitespace-nowrap"
                   >
                     <Archive size={14} strokeWidth={2.5} />
                     {tr("crm", "contentToArchive")}
@@ -1404,7 +1404,7 @@ export function ContentCatalog() {
               return (
                 <div
                   key={item.id}
-                  className="flex items-start gap-3 rounded-lg border border-border px-3 py-2.5 hover:bg-muted/30 transition-colors"
+                  className="flex items-start gap-3 rounded-[18px] border-[0.5px] border-[rgba(0,0,0,0.07)] px-3 py-2.5 hover:bg-muted/30 transition-colors"
                 >
                   <Checkbox
                     id={cid}
@@ -1463,7 +1463,7 @@ export function ContentCatalog() {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 24 }}
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl border border-border bg-card px-5 py-3 shadow-xl"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 glass-card px-5 py-3 shadow-xl"
         >
           <span className="text-sm font-bold text-foreground">
             {selectedIds.size} выбрано

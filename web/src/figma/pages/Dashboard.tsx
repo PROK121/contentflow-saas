@@ -460,7 +460,7 @@ export function Dashboard() {
         className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
       >
         <div>
-          <h1 className="text-2xl font-bold text-foreground mb-1">
+          <h1 className="text-[22px] font-semibold tracking-tight text-foreground mb-1">
             {tr("crm", "dashboardTitle")}
           </h1>
           <p className="text-sm text-muted-foreground max-w-2xl">
@@ -583,10 +583,10 @@ export function Dashboard() {
             >
               <Link
                 href={stat.href}
-                className="block rounded-lg p-5 bg-card border border-border shadow-sm hover:shadow-md hover:border-primary/25 transition-all duration-200 h-full"
+                className="block rounded-lg p-5 glass-card hover:bg-white/90 transition-all duration-200 h-full"
               >
                 <div className="flex items-center justify-between mb-3">
-                  <div className="w-11 h-11 rounded bg-primary flex items-center justify-center shadow-sm">
+                  <div className="w-11 h-11 rounded bg-primary flex items-center justify-center">
                     <Icon
                       size={22}
                       strokeWidth={2.5}
@@ -610,7 +610,7 @@ export function Dashboard() {
                   {stat.label}
                 </p>
                 <p
-                  className="text-2xl font-bold text-foreground mb-2"
+                  className="text-[22px] font-semibold tracking-tight text-foreground mb-2"
                   style={{ fontFamily: "var(--font-mono)" }}
                 >
                   {loading ? "…" : stat.value}
@@ -654,7 +654,7 @@ export function Dashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, type: "spring", damping: 20 }}
-          className="rounded-lg border border-border bg-card p-6 shadow-sm"
+          className="glass-card p-6"
         >
           <div className="mb-6 pb-3 border-b border-border">
             <h3 className="text-base font-bold text-foreground uppercase tracking-wide">
@@ -711,7 +711,7 @@ export function Dashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25, type: "spring", damping: 20 }}
-          className="rounded-lg border border-border bg-card p-6 shadow-sm"
+          className="glass-card p-6"
         >
           <div className="mb-6 pb-3 border-b border-border flex items-start justify-between gap-2">
             <div>
@@ -784,7 +784,7 @@ export function Dashboard() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3, type: "spring", damping: 20 }}
-        className="rounded-lg border border-border bg-card overflow-hidden shadow-sm"
+        className="glass-card overflow-hidden"
       >
         <div className="px-6 py-4 border-b border-border bg-muted/30 flex flex-wrap items-center justify-between gap-2">
           <div>

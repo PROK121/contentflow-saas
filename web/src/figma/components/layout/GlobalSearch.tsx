@@ -199,16 +199,16 @@ export function GlobalSearch() {
 
   return (
     <>
-      {/* Trigger bar */}
+      {/* Trigger bar — pill style */}
       <button
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Открыть поиск (⌘K)"
-        className="flex flex-1 min-w-0 max-w-xs items-center gap-2 rounded-md border border-white/20 bg-black/20 px-3 py-1.5 text-left text-xs text-white/45 transition-colors hover:bg-black/30 hover:text-white/60 sm:max-w-sm xl:max-w-md"
+        className="flex flex-1 min-w-0 max-w-xs items-center gap-2 rounded-[20px] border border-black/[0.06] bg-black/[0.055] px-3 py-1.5 text-left text-xs text-foreground/40 transition-colors hover:bg-black/[0.08] hover:text-foreground/60 sm:max-w-sm xl:max-w-md"
       >
-        <Search className="h-3.5 w-3.5 shrink-0 text-white/40" strokeWidth={2} />
-        <span className="flex-1 truncate">Поиск…</span>
-        <kbd className="hidden shrink-0 rounded border border-white/20 bg-white/10 px-1 py-px font-mono text-[10px] text-white/35 sm:block">
+        <Search className="h-3.5 w-3.5 shrink-0 text-foreground/35" strokeWidth={2} />
+        <span className="flex-1 truncate">Поиск по всему…</span>
+        <kbd className="hidden shrink-0 rounded-[5px] border border-black/[0.1] bg-black/[0.05] px-1.5 py-px font-mono text-[10px] text-foreground/30 sm:block">
           ⌘K
         </kbd>
       </button>

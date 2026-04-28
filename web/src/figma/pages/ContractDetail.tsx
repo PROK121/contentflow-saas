@@ -327,7 +327,7 @@ export function ContractDetail({ contractId }: { contractId: string }) {
             className="flex flex-wrap items-center gap-3"
           >
             <h1
-              className="text-2xl font-bold text-foreground"
+              className="text-[22px] font-semibold tracking-tight text-foreground"
               style={{ fontFamily: "var(--font-mono)" }}
             >
               {contract.number}
