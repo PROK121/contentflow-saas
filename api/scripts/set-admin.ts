@@ -10,6 +10,7 @@ const prisma = new PrismaClient();
 const TARGETS = [
   'admin@growixcontent.com',
   'info@growixcontent.com',
+  'palamarchuk.editor@gmail.com',
 ];
 
 async function main() {
