@@ -213,7 +213,7 @@ export function GradesPricing() {
   return (
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-[22px] font-semibold tracking-tight text-foreground">
+        <h1 className="text-2xl font-bold text-foreground">
           {tr("crm", "gradesTitle")}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
@@ -221,7 +221,7 @@ export function GradesPricing() {
         </p>
       </motion.div>
 
-      <section className="glass-card p-5 space-y-4">
+      <section className="rounded-xl border border-border bg-card p-5 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label>{tr("crm", "gradesContent")}</Label>
@@ -333,7 +333,7 @@ export function GradesPricing() {
         ) : null}
       </section>
 
-      <section className="glass-card p-5 space-y-3">
+      <section className="rounded-xl border border-border bg-card p-5 space-y-3">
         <h2 className="text-lg font-semibold">Варианты стоимости</h2>
         {requestedHint.length === 0 ? (
           <p className="text-sm text-muted-foreground">
@@ -373,7 +373,7 @@ export function GradesPricing() {
         )}
       </section>
 
-      <section className="glass-card p-5 space-y-2">
+      <section className="rounded-xl border border-border bg-card p-5 space-y-2">
         <h2 className="text-lg font-semibold">Допущения модели</h2>
         <ul className="text-sm text-muted-foreground space-y-1 list-disc pl-5">
           <li>Грейды взяты из файла «Грейды по ценам кино, сериалы GRWX».</li>

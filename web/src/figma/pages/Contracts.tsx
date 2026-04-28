@@ -435,7 +435,7 @@ export function Contracts() {
         className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
       >
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-foreground mb-1">
+          <h1 className="text-2xl font-bold text-foreground mb-1">
             {tr("crm", "contractsTitle")}
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -499,8 +499,8 @@ export function Contracts() {
           className={cn(
             "px-4 py-2 rounded font-semibold transition-all text-sm",
             contractKindTab === "po"
-              ? "bg-primary text-primary-foreground"
-              : "glass-card hover:bg-muted/30",
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "bg-card border border-border hover:bg-muted/30",
           )}
         >
           Контракты для ПО
@@ -511,8 +511,8 @@ export function Contracts() {
           className={cn(
             "px-4 py-2 rounded font-semibold transition-all text-sm",
             contractKindTab === "platform"
-              ? "bg-primary text-primary-foreground"
-              : "glass-card hover:bg-muted/30",
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "bg-card border border-border hover:bg-muted/30",
           )}
         >
           Контракты для площадки
@@ -526,8 +526,8 @@ export function Contracts() {
           className={cn(
             "px-4 py-2 rounded font-semibold transition-all text-sm",
             contractsTab === "active"
-              ? "bg-primary text-primary-foreground"
-              : "glass-card hover:bg-muted/30",
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "bg-card border border-border hover:bg-muted/30",
           )}
         >
           {tr("crm", "contractsTabActive")}
@@ -538,8 +538,8 @@ export function Contracts() {
           className={cn(
             "px-4 py-2 rounded font-semibold transition-all text-sm",
             contractsTab === "signed"
-              ? "bg-primary text-primary-foreground"
-              : "glass-card hover:bg-muted/30",
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "bg-card border border-border hover:bg-muted/30",
           )}
         >
           {tr("crm", "contractsTabSigned")}
@@ -550,8 +550,8 @@ export function Contracts() {
           className={cn(
             "px-4 py-2 rounded font-semibold transition-all text-sm",
             contractsTab === "archive"
-              ? "bg-primary text-primary-foreground"
-              : "glass-card hover:bg-muted/30",
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "bg-card border border-border hover:bg-muted/30",
           )}
         >
           {tr("crm", "contractsTabArchive")}
@@ -566,8 +566,8 @@ export function Contracts() {
           className={cn(
             "px-4 py-2 rounded font-semibold transition-all text-sm",
             selectedStatus === null
-              ? "bg-primary text-primary-foreground"
-              : "glass-card hover:bg-muted/30",
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "bg-card border border-border hover:bg-muted/30",
           )}
         >
           {tr("crm", "contractsFilterAll")}
@@ -585,8 +585,8 @@ export function Contracts() {
               className={cn(
                 "flex items-center gap-2 px-4 py-2 rounded font-semibold transition-all text-sm",
                 selectedStatus === key
-                  ? "bg-primary text-primary-foreground"
-                  : "glass-card hover:bg-muted/30",
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-card border border-border hover:bg-muted/30",
               )}
             >
               <Icon size={14} strokeWidth={2.5} />
@@ -621,7 +621,7 @@ export function Contracts() {
             className="w-full rounded-md border border-border/50 bg-input-background pl-10 pr-4 py-2.5 text-sm focus:outline-none focus-visible:border-ring/80 focus-visible:ring-2 focus-visible:ring-ring/25"
           />
         </div>
-        <div className="inline-flex rounded-[18px] border-[0.5px] border-[rgba(0,0,0,0.07)] p-0.5 bg-muted/30 shrink-0">
+        <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/30 shrink-0">
           <Button
             type="button"
             variant={viewMode === "grid" ? "secondary" : "ghost"}
@@ -652,7 +652,7 @@ export function Contracts() {
       )}
 
       {!loading && !loadErr && kindScopedRows.length === 0 && (
-        <div className="glass-card p-8 text-center space-y-3">
+        <div className="rounded-lg border border-border bg-card p-8 text-center space-y-3">
           <p className="text-sm text-muted-foreground">
             {contractsTab === "archive"
               ? "В архиве пока нет контрактов."
@@ -725,7 +725,7 @@ export function Contracts() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.04 }}
-                className="rounded-lg glass-card p-5 hover:shadow-md transition-all duration-300"
+                className="rounded-lg bg-card border border-border p-5 hover:shadow-md transition-all duration-300"
               >
                 <div className="flex flex-col lg:flex-row lg:items-center gap-5">
                   <div className="flex-1 space-y-4">
@@ -889,7 +889,7 @@ export function Contracts() {
           })}
         </div>
       ) : (
-        <div className="overflow-x-auto glass-card">
+        <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
           <table className="w-full min-w-[900px] text-sm">
             <thead className="bg-muted/50 border-b-2 border-border">
               <tr>

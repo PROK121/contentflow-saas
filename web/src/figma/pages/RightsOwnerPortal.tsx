@@ -115,7 +115,7 @@ export function RightsOwnerPortal() {
             <span className="text-xl font-bold text-primary-foreground">PP</span>
           </div>
           <div>
-            <h1 className="text-[22px] font-semibold tracking-tight text-foreground">Premium Productions Ltd.</h1>
+            <h1 className="text-2xl font-bold text-foreground">Premium Productions Ltd.</h1>
             <p className="text-sm text-muted-foreground">Rights Owner Portal</p>
           </div>
         </div>
@@ -145,7 +145,7 @@ export function RightsOwnerPortal() {
                 </div>
                 <div>
                   <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">{stat.label}</p>
-                  <p className="text-[22px] font-semibold tracking-tight mt-1 text-foreground" style={{ fontFamily: 'var(--font-mono)' }}>
+                  <p className="text-2xl font-bold mt-1 text-foreground" style={{ fontFamily: 'var(--font-mono)' }}>
                     {formatMoneyAmount(stat.value)}
                   </p>
                 </div>
@@ -180,7 +180,7 @@ export function RightsOwnerPortal() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.4 + index * 0.1 }}
-              className="rounded-lg glass-card p-5 hover:shadow-md transition-all duration-300"
+              className="rounded-lg bg-card border border-border p-5 hover:shadow-md transition-all duration-300"
             >
               <div className="space-y-4">
                 <div>
@@ -226,7 +226,7 @@ export function RightsOwnerPortal() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.7 }}
-        className="rounded-lg glass-card overflow-hidden shadow-sm"
+        className="rounded-lg bg-card border border-border overflow-hidden shadow-sm"
       >
         <div className="px-6 py-4 border-b border-border bg-muted/30">
           <h2 className="text-base font-bold text-foreground uppercase tracking-wide">История платежей</h2>

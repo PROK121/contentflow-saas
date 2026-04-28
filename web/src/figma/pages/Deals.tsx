@@ -105,14 +105,14 @@ export function Deals() {
         className="flex items-start justify-between"
       >
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-foreground mb-1">
+          <h1 className="text-2xl font-bold text-foreground mb-1">
             {tr("crm", "dealsTitle")}
           </h1>
           <p className="text-sm text-muted-foreground">
             {tr("crm", "dealsSubtitle")}
           </p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors text-sm font-semibold">
+        <button className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors text-sm font-semibold shadow-sm">
           <Plus size={18} strokeWidth={2.5} />
           <span>{tr("crm", "dealsNew")}</span>
         </button>
@@ -137,7 +137,7 @@ export function Deals() {
               <div className="space-y-2">
                 <p className="text-xs font-bold text-foreground uppercase tracking-wider">{stage.label}</p>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-[22px] font-semibold tracking-tight text-foreground">{stageDeals.length}</p>
+                  <p className="text-2xl font-bold text-foreground">{stageDeals.length}</p>
                   <p className="text-xs text-muted-foreground font-semibold">
                     {tr("crm", "dealsCountMany")}
                   </p>
@@ -185,7 +185,7 @@ export function Deals() {
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: stageIndex * 0.1 + dealIndex * 0.05 }}
-                    className="rounded-lg glass-card p-4 hover:shadow-md transition-all duration-200 cursor-pointer"
+                    className="rounded-lg bg-card border border-border p-4 hover:shadow-md transition-all duration-200 cursor-pointer"
                   >
                     <div className="space-y-3">
                       {/* Header */}

@@ -328,7 +328,7 @@ export function Payments() {
         className="flex flex-wrap items-start justify-between gap-4"
       >
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-foreground mb-1">
+          <h1 className="text-2xl font-bold text-foreground mb-1">
             {tr("crm", "paymentsTitle")}
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -353,7 +353,7 @@ export function Payments() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
               className={cn(
-                "glass-card p-5 hover:shadow-md transition-all",
+                "rounded-lg border border-border bg-card p-5 hover:shadow-md transition-all",
                 stat.color,
               )}
             >
@@ -361,7 +361,7 @@ export function Payments() {
                 <div className="flex items-start justify-between">
                   <div
                     className={cn(
-                      "p-2.5 rounded bg-card",
+                      "p-2.5 rounded bg-card shadow-sm",
                       stat.iconColor,
                     )}
                   >
@@ -376,7 +376,7 @@ export function Payments() {
                     {stat.label}
                   </p>
                   <p
-                    className="text-[22px] font-semibold tracking-tight mt-1 text-foreground"
+                    className="text-2xl font-bold mt-1 text-foreground"
                     style={{ fontFamily: "var(--font-mono)" }}
                   >
                     {`${formatMoneyAmount(stat.value)} \u20B8`}
@@ -428,7 +428,7 @@ export function Payments() {
       </div>
 
       {mainTab !== "payouts" ? (
-        <div className="flex flex-wrap gap-3 items-end glass-card p-4">
+        <div className="flex flex-wrap gap-3 items-end rounded-lg border border-border bg-card p-4">
           <div className="space-y-1">
             <Label className="text-xs">{tr("crm", "paymentsFilterStatus")}</Label>
             <select
@@ -501,7 +501,7 @@ export function Payments() {
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-lg glass-card overflow-hidden"
+          className="rounded-lg bg-card border border-border overflow-hidden shadow-sm"
         >
           <div className="px-6 py-4 border-b border-border bg-muted/30">
             <h3 className="text-base font-bold text-foreground uppercase tracking-wide">
@@ -713,7 +713,7 @@ export function Payments() {
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-lg glass-card overflow-hidden"
+          className="rounded-lg bg-card border border-border overflow-hidden shadow-sm"
         >
           <div className="px-6 py-4 border-b border-border bg-muted/30 flex flex-wrap justify-between gap-2">
             <div>

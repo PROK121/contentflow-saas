@@ -524,7 +524,7 @@ export function Offers() {
         className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
       >
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-foreground mb-1">
+          <h1 className="text-2xl font-bold text-foreground mb-1">
             {tr("crm", "offersTitle")}
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -534,7 +534,7 @@ export function Offers() {
         <div className="flex flex-row flex-nowrap items-center gap-2 shrink-0">
           <button
             type="button"
-            className="flex shrink-0 items-center gap-2 whitespace-nowrap px-4 py-2.5 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors text-sm font-semibold"
+            className="flex shrink-0 items-center gap-2 whitespace-nowrap px-4 py-2.5 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors text-sm font-semibold shadow-sm"
             onClick={() => {
               setOfferTemplateKind("po");
               setOfferError(null);
@@ -549,7 +549,7 @@ export function Offers() {
           </button>
           <button
             type="button"
-            className="flex shrink-0 items-center gap-2 whitespace-nowrap px-4 py-2.5 border border-border bg-card text-foreground rounded hover:bg-muted/40 transition-colors text-sm font-semibold"
+            className="flex shrink-0 items-center gap-2 whitespace-nowrap px-4 py-2.5 border border-border bg-card text-foreground rounded hover:bg-muted/40 transition-colors text-sm font-semibold shadow-sm"
             onClick={() => {
               setOfferTemplateKind("platforms");
               setOfferError(null);
@@ -564,7 +564,7 @@ export function Offers() {
           </button>
           <button
             type="button"
-            className="flex shrink-0 items-center gap-2 whitespace-nowrap px-4 py-2.5 border border-border bg-card text-foreground rounded hover:bg-muted/40 transition-colors text-sm font-semibold"
+            className="flex shrink-0 items-center gap-2 whitespace-nowrap px-4 py-2.5 border border-border bg-card text-foreground rounded hover:bg-muted/40 transition-colors text-sm font-semibold shadow-sm"
             onClick={() => {
               setManualErr(null);
               setManualFile(null);
@@ -586,7 +586,7 @@ export function Offers() {
           onClick={() => setOffersTab("active")}
           className={`px-4 py-2 rounded font-semibold transition-all text-sm ${
             offersTab === "active"
-              ? "bg-primary text-primary-foreground"
+              ? "bg-primary text-primary-foreground shadow-sm"
               : "bg-muted/50 border border-border hover:bg-muted/30"
           }`}
         >
@@ -602,7 +602,7 @@ export function Offers() {
           onClick={() => setOffersTab("signed")}
           className={`px-4 py-2 rounded font-semibold transition-all text-sm ${
             offersTab === "signed"
-              ? "bg-primary text-primary-foreground"
+              ? "bg-primary text-primary-foreground shadow-sm"
               : "bg-muted/50 border border-border hover:bg-muted/30"
           }`}
         >
@@ -618,7 +618,7 @@ export function Offers() {
           onClick={() => setOffersTab("archive")}
           className={`px-4 py-2 rounded font-semibold transition-all text-sm ${
             offersTab === "archive"
-              ? "bg-primary text-primary-foreground"
+              ? "bg-primary text-primary-foreground shadow-sm"
               : "bg-muted/50 border border-border hover:bg-muted/30"
           }`}
         >
@@ -673,7 +673,7 @@ export function Offers() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
-              className="rounded-lg glass-card p-5 hover:shadow-md transition-all duration-300"
+              className="rounded-lg bg-card border border-border p-5 hover:shadow-md transition-all duration-300"
             >
               <div className="flex flex-col lg:flex-row lg:items-center gap-5">
                 <div className="flex-1 space-y-3">

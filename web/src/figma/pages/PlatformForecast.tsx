@@ -116,7 +116,7 @@ export function PlatformForecast() {
         className="flex flex-wrap items-start justify-between gap-4"
       >
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-foreground mb-1">
+          <h1 className="text-2xl font-bold text-foreground mb-1">
             {tr("crm", "platformForecastTitle")}
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -132,7 +132,7 @@ export function PlatformForecast() {
         </Button>
       </motion.div>
 
-      <section className="glass-card p-5 space-y-4">
+      <section className="rounded-xl border border-border bg-card p-5 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label>{tr("crm", "platformForecastContentType")}</Label>
@@ -172,7 +172,7 @@ export function PlatformForecast() {
         ) : null}
       </section>
 
-      <section className="glass-card p-5 space-y-3">
+      <section className="rounded-xl border border-border bg-card p-5 space-y-3">
         <h2 className="text-lg font-semibold">
           {tr("crm", "platformForecastSharesTitle")}
         </h2>
@@ -224,7 +224,7 @@ export function PlatformForecast() {
         </div>
       </section>
 
-      <section className="glass-card p-5 space-y-2">
+      <section className="rounded-xl border border-border bg-card p-5 space-y-2">
         <h2 className="text-lg font-semibold">Результат по деньгам</h2>
         <p className="text-sm text-muted-foreground">
           Тип контента:{" "}

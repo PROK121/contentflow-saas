@@ -338,7 +338,7 @@ function TableShell({
 }) {
   return (
     <div
-      className={`glass-card overflow-hidden ${className}`}
+      className={`rounded-xl border border-border bg-card overflow-hidden ${className}`}
     >
       <div className="max-h-[min(70vh,720px)] overflow-auto">
         <table className="w-max min-w-full border-collapse text-sm">{children}</table>
@@ -730,7 +730,7 @@ export function RightsBase() {
   return (
     <div className="space-y-4">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-[22px] font-semibold tracking-tight text-foreground">
+        <h1 className="text-2xl font-bold text-foreground">
           {tr("crm", "rightsBaseTitle")}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
@@ -768,7 +768,7 @@ export function RightsBase() {
           {/* Toolbar: expiry filter + CSV export */}
           <div className="flex flex-wrap items-center gap-2">
             {(activeTab === "acq" || activeTab === "sales") && (
-              <div className="flex items-center gap-1 glass-card p-1 text-xs font-semibold">
+              <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1 text-xs font-semibold">
                 <span className="px-2 text-muted-foreground">Истекают через:</span>
                 {([60, 90, 180] as const).map((d) => (
                   <button
@@ -799,7 +799,7 @@ export function RightsBase() {
               <button
                 type="button"
                 onClick={() => exportCsv(activeTab)}
-                className="flex items-center gap-1.5 glass-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
+                className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
               >
                 ↓ CSV
               </button>
@@ -1114,7 +1114,7 @@ export function RightsBase() {
             </div>
 
             {/* ── 1. Реестр тайтлов ── */}
-            <div className="glass-card p-5">
+            <div className="rounded-xl border border-border bg-card p-5">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-base">🎬</span>
                 <h2 className="text-sm font-bold">Вкладка: Реестр тайтлов</h2>
@@ -1160,7 +1160,7 @@ export function RightsBase() {
             </div>
 
             {/* ── 2. Сделки закупа ── */}
-            <div className="glass-card p-5">
+            <div className="rounded-xl border border-border bg-card p-5">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-base">📥</span>
                 <h2 className="text-sm font-bold">Вкладка: Сделки закупа</h2>
@@ -1210,7 +1210,7 @@ export function RightsBase() {
             </div>
 
             {/* ── 3. Сделки продаж ── */}
-            <div className="glass-card p-5">
+            <div className="rounded-xl border border-border bg-card p-5">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-base">📤</span>
                 <h2 className="text-sm font-bold">Вкладка: Сделки продаж</h2>
@@ -1262,7 +1262,7 @@ export function RightsBase() {
             </div>
 
             {/* ── 4. Площадки ── */}
-            <div className="glass-card p-5">
+            <div className="rounded-xl border border-border bg-card p-5">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-base">🏢</span>
                 <h2 className="text-sm font-bold">Вкладка: Площадки</h2>
@@ -1308,7 +1308,7 @@ export function RightsBase() {
             </div>
 
             {/* ── 5. Материалы ── */}
-            <div className="glass-card p-5">
+            <div className="rounded-xl border border-border bg-card p-5">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-base">📦</span>
                 <h2 className="text-sm font-bold">Вкладка: Материалы</h2>
@@ -1353,7 +1353,7 @@ export function RightsBase() {
             {/* ── Словари ── */}
             <div className="grid gap-6 lg:grid-cols-2">
 
-              <div className="glass-card p-4">
+              <div className="rounded-xl border border-border bg-card p-4">
                 <h3 className="text-sm font-bold mb-1">📋 Типы прав</h3>
                 <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
                   Определяет, каким способом покупатель может использовать контент. Один тайтл можно продать разным покупателям с разными типами прав — главное, чтобы не было конфликта по территории и эксклюзивности.
@@ -1369,7 +1369,7 @@ export function RightsBase() {
                 <p className="text-[11px] text-muted-foreground mt-2">💡 Купили только SVOD — продать Pay TV нельзя. Продаёте сериал платформе (SVOD) и каналу (Pay TV) одновременно — это нормально, если в закупе есть оба права.</p>
               </div>
 
-              <div className="glass-card p-4">
+              <div className="rounded-xl border border-border bg-card p-4">
                 <h3 className="text-sm font-bold mb-1">🔒 Формат лицензии (Эксклюзивность)</h3>
                 <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
                   Определяет, сколько покупателей могут одновременно использовать контент на одной территории и платформе. Система автоматически блокирует конфликтующие сделки.
@@ -1385,7 +1385,7 @@ export function RightsBase() {
                 <p className="text-[11px] text-muted-foreground mt-2">💡 Холдбэк — отсрочка перед следующим типом показа. Пример: фильм вышел в кино, площадка требует 90 дней до запуска на SVOD. Указывается в поле «Окно/холдбэк».</p>
               </div>
 
-              <div className="glass-card p-4">
+              <div className="rounded-xl border border-border bg-card p-4">
                 <h3 className="text-sm font-bold mb-1">💰 Модели оплаты</h3>
                 <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
                   Определяет структуру платежа по сделке. От модели зависит, как формируются инвойсы и финансовая отчётность.
@@ -1401,7 +1401,7 @@ export function RightsBase() {
                 <p className="text-[11px] text-muted-foreground mt-2">💡 MG (минимальная гарантия) — покупатель платит аванс, который потом «отбивает» из доли выручки. Если выручка ниже MG — разница остаётся у вас.</p>
               </div>
 
-              <div className="glass-card p-4">
+              <div className="rounded-xl border border-border bg-card p-4">
                 <h3 className="text-sm font-bold mb-1">🌍 Территории и языки</h3>
                 <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
                   Коды территорий и языков для полей в сделках. Используйте именно эти коды — система по ним проверяет пересечения прав.

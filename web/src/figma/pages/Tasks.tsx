@@ -1041,7 +1041,7 @@ export function Tasks() {
         className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
       >
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-foreground mb-1">
+          <h1 className="text-2xl font-bold text-foreground mb-1">
             {tr("crm", "tasksTitle")}
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -1097,7 +1097,7 @@ export function Tasks() {
         </div>
       ) : null}
 
-      <div className="glass-card p-4 space-y-4">
+      <div className="rounded-lg border border-border bg-card p-4 space-y-4">
         <div className="space-y-1 min-w-0 max-w-xl">
           <Label htmlFor="task-search">{tr("crm", "tasksSearch")}</Label>
           <div className="relative">
@@ -1170,7 +1170,7 @@ export function Tasks() {
             onClick={() => setPriorityFilter(null)}
             className={`px-4 py-2 rounded font-semibold transition-all text-sm ${
               priorityFilter === null
-                ? "bg-primary text-primary-foreground"
+                ? "bg-primary text-primary-foreground shadow-sm"
                 : "bg-muted/50 border border-border hover:bg-muted/30"
             }`}
           >
@@ -1217,7 +1217,7 @@ export function Tasks() {
             return (
               <div
                 key={task.id}
-                className="rounded-lg glass-card p-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3"
+                className="rounded-lg bg-card border border-border p-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3"
               >
                 <div className="min-w-0 flex-1 space-y-2">
                   <h4 className="font-semibold text-sm">
@@ -1324,7 +1324,7 @@ export function Tasks() {
                     className="flex flex-col w-[min(100vw-2rem,320px)] shrink-0 lg:w-auto lg:min-w-0 lg:shrink"
                   >
                     <div
-                      className={`rounded-lg ${column.color} border ${column.borderColor} p-4 mb-3 bg-card`}
+                      className={`rounded-lg ${column.color} border ${column.borderColor} p-4 mb-3 bg-card shadow-sm`}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
@@ -1335,7 +1335,7 @@ export function Tasks() {
                             {column.title}
                           </h3>
                         </div>
-                        <span className="px-2.5 py-1 rounded glass-card text-xs font-bold text-foreground shrink-0">
+                        <span className="px-2.5 py-1 rounded bg-card border border-border text-xs font-bold text-foreground shrink-0">
                           {headerCount}
                         </span>
                       </div>
@@ -1376,7 +1376,7 @@ export function Tasks() {
                           initial={{ opacity: 0, scale: 0.95 }}
                           animate={{ opacity: 1, scale: 1 }}
                           transition={{ delay: columnIndex * 0.1 + pinIndex * 0.05 }}
-                          className="group rounded-lg glass-card border-l-4 border-l-warning/70 hover:shadow-md transition-all duration-200 flex overflow-hidden w-full"
+                          className="group rounded-lg bg-card border border-border border-l-4 border-l-warning/70 hover:shadow-md transition-all duration-200 flex overflow-hidden w-full"
                         >
                           <div
                             className="shrink-0 px-2 py-4 bg-warning/10 border-r border-border flex items-start justify-center"
@@ -1476,7 +1476,7 @@ export function Tasks() {
                                 transition={{
                                   delay: columnIndex * 0.1 + (pinRows.length + taskIndex) * 0.05,
                                 }}
-                                className="group rounded-lg glass-card hover:shadow-md transition-all duration-200 flex overflow-hidden w-full"
+                                className="group rounded-lg bg-card border border-border hover:shadow-md transition-all duration-200 flex overflow-hidden w-full"
                               >
                                 <button
                                   type="button"
@@ -1551,7 +1551,7 @@ export function Tasks() {
                                         ) : null}
                                       </div>
                                       <div className="flex items-center gap-2 pt-2">
-                                        <div className="w-7 h-7 rounded bg-primary flex items-center justify-center text-xs font-bold text-primary-foreground">
+                                        <div className="w-7 h-7 rounded bg-primary flex items-center justify-center text-xs font-bold text-primary-foreground shadow-sm">
                                           {assigneeInitials(task.assignee)}
                                         </div>
                                         <span className="text-xs font-semibold text-muted-foreground truncate">
