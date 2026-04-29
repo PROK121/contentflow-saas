@@ -1109,13 +1109,6 @@ export function ContentCatalog() {
             <span>{tr("crm", "contentPdfForBuyer")}</span>
           </button>
           <Link
-            href="/deals?create=1"
-            className="flex items-center gap-2 px-4 py-2.5 bg-card border border-border text-foreground rounded hover:bg-muted transition-colors text-sm font-semibold shadow-sm"
-          >
-            <Plus size={18} strokeWidth={2.5} />
-            <span>{tr("crm", "contentNewDealFromCatalog")}</span>
-          </Link>
-          <Link
             href="/content/new"
             className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors text-sm font-semibold shadow-sm"
           >

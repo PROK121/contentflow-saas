@@ -4,6 +4,7 @@ import { motion } from "motion/react";
 import {
   Archive,
   ArchiveRestore,
+  ChevronDown,
   Download,
   Eye,
   FilePenLine,
@@ -19,6 +20,7 @@ import { formatMoneyAmountOrEmpty } from "@/lib/format-money";
 import {
   catalogToOfferContentFields,
   OFFER_DEFAULT_LICENSE_TERM,
+  readCatalogOfferSourceMeta,
 } from "@/lib/catalog-item-create";
 import {
   DEAL_TERRITORY_PRESETS,
@@ -52,6 +54,7 @@ type ApiDealBuyer = {
 type OfferTemplateKind = "po" | "platforms" | "platforms_package";
 
 type PackageTitleRow = {
+  catalogItemId: string;
   title: string;
   seriesCount: string;
   genre: string;
@@ -64,6 +67,7 @@ type PackageTitleRow = {
 
 function defaultPackageTitle(): PackageTitleRow {
   return {
+    catalogItemId: "",
     title: "",
     seriesCount: "",
     genre: "",
@@ -597,28 +601,13 @@ export function Offers() {
               setOfferError(null);
               setOfferCatalogItemId("");
               setOfferForm(defaultOfferForm());
-              void loadDealClients();
-              setOfferDialogOpen(true);
-            }}
-          >
-            <Plus size={18} strokeWidth={2.5} />
-            <span>{tr("crm", "offersCreatePlatforms")}</span>
-          </button>
-          <button
-            type="button"
-            className="flex shrink-0 items-center gap-2 whitespace-nowrap px-4 py-2.5 border border-border bg-card text-foreground rounded hover:bg-muted/40 transition-colors text-sm font-semibold shadow-sm"
-            onClick={() => {
-              setOfferTemplateKind("platforms_package");
-              setOfferError(null);
-              setOfferCatalogItemId("");
-              setOfferForm(defaultOfferForm());
               setPackageTitles([defaultPackageTitle()]);
               void loadDealClients();
               setOfferDialogOpen(true);
             }}
           >
             <Plus size={18} strokeWidth={2.5} />
-            <span>Пакет площадок</span>
+            <span>{tr("crm", "offersCreatePlatforms")}</span>
           </button>
           <button
             type="button"
@@ -1022,6 +1011,23 @@ export function Offers() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 sm:grid-cols-2">
+            {(offerTemplateKind === "platforms" ||
+              offerTemplateKind === "platforms_package") && (
+              <div className="space-y-1 sm:col-span-2">
+                <Label htmlFor="platformOfferMode">Формат оффера для площадок</Label>
+                <select
+                  id="platformOfferMode"
+                  className={fieldClass}
+                  value={offerTemplateKind}
+                  onChange={(e) =>
+                    setOfferTemplateKind(e.target.value as "platforms" | "platforms_package")
+                  }
+                >
+                  <option value="platforms">Обычный оффер (1 тайтл)</option>
+                  <option value="platforms_package">Пакетный оффер (несколько тайтлов)</option>
+                </select>
+              </div>
+            )}
             <div className="space-y-1 sm:col-span-2">
               <Label htmlFor="offerDate">Дата</Label>
               <input
@@ -1273,8 +1279,8 @@ export function Offers() {
                 </div>
                 <div className="space-y-3">
                   {packageTitles.map((row, idx) => (
-                    <div key={idx} className="rounded-md border border-border/50 p-3 space-y-2 relative">
-                      <div className="flex items-center justify-between mb-1">
+                    <div key={idx} className="rounded-md border border-border/50 p-3 space-y-3 relative">
+                      <div className="flex items-center justify-between">
                         <span className="text-xs font-semibold text-muted-foreground">Тайтл #{idx + 1}</span>
                         {packageTitles.length > 1 && (
                           <button
@@ -1288,12 +1294,62 @@ export function Offers() {
                           </button>
                         )}
                       </div>
+
+                      {/* Пикер тайтла из каталога */}
+                      <div className="space-y-1">
+                        <Label>Выбрать из каталога</Label>
+                        <CatalogItemPicker
+                          items={catalogPickList}
+                          selectedId={row.catalogItemId}
+                          onSelect={(item) => {
+                            const meta = readCatalogOfferSourceMeta(item.metadata);
+                            const ep = meta.episodeCount != null ? String(meta.episodeCount) : "1";
+                            const langSet = new Set<string>();
+                            for (const t of (item.licenseTerms ?? [])) {
+                              for (const lang of (t.languageRights ?? [])) {
+                                if (lang.trim()) langSet.add(lang.trim());
+                              }
+                            }
+                            setPackageTitles((prev) =>
+                              prev.map((r, i) =>
+                                i === idx
+                                  ? {
+                                      ...r,
+                                      catalogItemId: item.id,
+                                      title: item.title,
+                                      seriesCount: ep,
+                                      genre: meta.genre?.trim() || "—",
+                                      runtime: meta.runtime?.trim() || "—",
+                                      productionYear:
+                                        meta.productionYear?.trim() ||
+                                        String(new Date().getFullYear()),
+                                      theatricalRelease:
+                                        meta.theatricalRelease?.trim() || "—",
+                                      language:
+                                        langSet.size > 0
+                                          ? [...langSet].join(", ")
+                                          : "—",
+                                    }
+                                  : r,
+                              ),
+                            );
+                          }}
+                        />
+                        {row.catalogItemId && (
+                          <p className="text-xs text-muted-foreground">
+                            Данные подтянуты из карточки — при необходимости отредактируйте поля ниже
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Редактируемые поля (заполняются автоматически, но доступны для правки) */}
                       <div className="grid gap-2 sm:grid-cols-2">
                         <div className="space-y-1 sm:col-span-2">
                           <Label>Название</Label>
                           <input
                             className={fieldClass}
                             value={row.title}
+                            placeholder="Будет заполнено из каталога"
                             onChange={(e) =>
                               setPackageTitles((prev) =>
                                 prev.map((r, i) => i === idx ? { ...r, title: e.target.value } : r)
@@ -1373,11 +1429,12 @@ export function Offers() {
                             }
                           />
                         </div>
-                        <div className="space-y-1">
-                          <Label>Стоимость</Label>
+                        <div className="space-y-1 sm:col-span-2">
+                          <Label>Стоимость (KZT)</Label>
                           <input
                             className={fieldClass}
                             value={row.price}
+                            placeholder="Введите стоимость"
                             onChange={(e) =>
                               setPackageTitles((prev) =>
                                 prev.map((r, i) => i === idx ? { ...r, price: e.target.value } : r)
@@ -1616,6 +1673,107 @@ export function Offers() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// CatalogItemPicker — выпадающий список с поиском для выбора тайтла из каталога
+// ---------------------------------------------------------------------------
+function CatalogItemPicker({
+  items,
+  selectedId,
+  onSelect,
+}: {
+  items: CatalogPickRow[];
+  selectedId: string;
+  onSelect: (item: CatalogPickRow) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleOutsideClick(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [open]);
+
+  const filtered = query.trim()
+    ? items.filter((item) =>
+        item.title.toLowerCase().includes(query.toLowerCase()) ||
+        (item.rightsHolder?.legalName ?? "").toLowerCase().includes(query.toLowerCase()),
+      )
+    : items;
+
+  const selected = items.find((i) => i.id === selectedId);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between rounded-md border border-border/60 bg-input-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+        onClick={() => {
+          setOpen((o) => !o);
+          setQuery("");
+        }}
+      >
+        <span className={selected ? "text-foreground" : "text-muted-foreground"}>
+          {selected ? selected.title : "— выберите тайтл из каталога —"}
+        </span>
+        <ChevronDown size={14} className="shrink-0 text-muted-foreground" />
+      </button>
+
+      {open && (
+        <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-border bg-popover shadow-lg">
+          {/* Поле поиска */}
+          <div className="border-b border-border/50 p-2">
+            <input
+              autoFocus
+              className="w-full rounded-sm border border-border/50 bg-background px-2 py-1.5 text-sm outline-none placeholder:text-muted-foreground focus:border-ring"
+              placeholder="Поиск по названию или правообладателю…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+
+          {/* Список тайтлов */}
+          <ul className="max-h-56 overflow-y-auto py-1">
+            {filtered.length === 0 ? (
+              <li className="px-3 py-3 text-center text-xs text-muted-foreground">
+                Ничего не найдено
+              </li>
+            ) : (
+              filtered.map((item) => (
+                <li
+                  key={item.id}
+                  className={`cursor-pointer px-3 py-2 hover:bg-muted ${
+                    item.id === selectedId ? "bg-primary/10" : ""
+                  }`}
+                  onMouseDown={() => {
+                    onSelect(item);
+                    setOpen(false);
+                    setQuery("");
+                  }}
+                >
+                  <div className={`text-sm ${item.id === selectedId ? "font-medium text-primary" : ""}`}>
+                    {item.title}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {item.rightsHolder?.legalName ?? ""}
+                    {item.assetType ? ` · ${item.assetType}` : ""}
+                  </div>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
