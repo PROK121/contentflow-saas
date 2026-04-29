@@ -20,6 +20,19 @@ export type PackageTitleRow = {
 
 export type PackageTemplateData = Record<string, string | PackageTitleRow[]>;
 
+function normalizePackageProductionYear(raw: string): string {
+  const value = raw.trim();
+  if (!value) return '';
+  const years = Array.from(
+    new Set((value.match(/\b(19|20)\d{2}\b/g) ?? []).map(Number)),
+  );
+  if (years.length === 0) return value;
+  if (years.length === 1) return String(years[0]);
+  const min = Math.min(...years);
+  const max = Math.max(...years);
+  return `${min}-${max}`;
+}
+
 export function offerDtoToTemplateData(
   dto: CreateCommercialOfferDto,
 ): OfferTemplateData {
@@ -142,7 +155,7 @@ export function offerDtoToPackageTemplateData(
       seriesCount: t.seriesCount,
       genre: t.genre,
       runtime: t.runtime,
-      productionYear: t.productionYear,
+      productionYear: normalizePackageProductionYear(t.productionYear),
       theatricalRelease: t.theatricalRelease,
       language: t.language,
       price: t.price,

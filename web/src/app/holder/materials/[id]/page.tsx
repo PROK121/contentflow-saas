@@ -448,27 +448,42 @@ function xhrUpload(
   data: FormData,
   onProgress: (pct: number) => void,
 ): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", url);
-    xhr.withCredentials = true;
-    xhr.upload.onprogress = (ev) => {
-      if (ev.lengthComputable) {
-        onProgress(Math.round((ev.loaded / ev.total) * 100));
-      }
-    };
-    xhr.onload = () => {
-      const text = xhr.responseText || "";
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          resolve(text ? JSON.parse(text) : null);
-        } catch {
-          resolve(null);
+  const maxAttempts = 3;
+  const transientStatuses = new Set([502, 503, 504]);
+
+  function runAttempt(attempt: number): Promise<unknown> {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", url);
+      xhr.withCredentials = true;
+      xhr.upload.onprogress = (ev) => {
+        if (ev.lengthComputable) {
+          onProgress(Math.round((ev.loaded / ev.total) * 100));
         }
-      } else {
-        // 502/503/504 — Render gateway или холодный старт сервера
-        if (xhr.status === 502 || xhr.status === 503 || xhr.status === 504) {
-          reject(new Error(`API временно недоступен (HTTP ${xhr.status}). Повторите загрузку через несколько секунд.`));
+      };
+      xhr.onload = () => {
+        const text = xhr.responseText || "";
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            resolve(text ? JSON.parse(text) : null);
+          } catch {
+            resolve(null);
+          }
+          return;
+        }
+        if (transientStatuses.has(xhr.status) && attempt < maxAttempts) {
+          onProgress(0);
+          setTimeout(() => {
+            void runAttempt(attempt + 1).then(resolve).catch(reject);
+          }, 1500 * attempt);
+          return;
+        }
+        if (transientStatuses.has(xhr.status)) {
+          reject(
+            new Error(
+              `API временно недоступен (HTTP ${xhr.status}). Попробуйте еще раз через 10-20 секунд.`,
+            ),
+          );
           return;
         }
         let msg = `HTTP ${xhr.status}`;
@@ -483,9 +498,24 @@ function xhrUpload(
           /* ignore */
         }
         reject(new Error(msg));
-      }
-    };
-    xhr.onerror = () => reject(new Error("Сетевая ошибка. Проверьте подключение и повторите попытку."));
-    xhr.send(data);
-  });
+      };
+      xhr.onerror = () => {
+        if (attempt < maxAttempts) {
+          onProgress(0);
+          setTimeout(() => {
+            void runAttempt(attempt + 1).then(resolve).catch(reject);
+          }, 1500 * attempt);
+          return;
+        }
+        reject(
+          new Error(
+            "Сетевая ошибка. Проверьте подключение и повторите попытку.",
+          ),
+        );
+      };
+      xhr.send(data);
+    });
+  }
+
+  return runAttempt(1);
 }

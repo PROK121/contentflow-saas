@@ -79,6 +79,17 @@ function defaultPackageTitle(): PackageTitleRow {
   };
 }
 
+function normalizePackageProductionYear(raw: string | undefined | null): string {
+  const value = (raw ?? "").trim();
+  if (!value) return String(new Date().getFullYear());
+  const years = Array.from(new Set((value.match(/\b(19|20)\d{2}\b/g) ?? []).map(Number)));
+  if (years.length === 0) return value;
+  if (years.length === 1) return String(years[0]);
+  const min = Math.min(...years);
+  const max = Math.max(...years);
+  return `${min}-${max}`;
+}
+
 type CommercialOfferRow = {
   id: string;
   title: string;
@@ -1341,8 +1352,7 @@ export function Offers() {
                                       genre: meta.genre?.trim() || "—",
                                       runtime: meta.runtime?.trim() || "—",
                                       productionYear:
-                                        meta.productionYear?.trim() ||
-                                        String(new Date().getFullYear()),
+                                        normalizePackageProductionYear(meta.productionYear),
                                       theatricalRelease:
                                         meta.theatricalRelease?.trim() || "—",
                                       language:
