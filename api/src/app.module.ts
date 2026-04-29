@@ -18,6 +18,7 @@ import { MaterialRequestsModule } from './material-requests/material-requests.mo
 import { PortalModule } from './portal/portal.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { TasksModule } from './tasks/tasks.module';
+import { HetznerStorageModule } from './hetzner-storage/hetzner-storage.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { UsersModule } from './users/users.module';
 
@@ -56,6 +57,7 @@ import { UsersModule } from './users/users.module';
     HolderAuthModule,
     MaterialRequestsModule,
     HolderPortalModule,
+    HetznerStorageModule,
   ],
   controllers: [HealthController, DebugController],
   providers: [
