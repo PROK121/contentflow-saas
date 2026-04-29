@@ -25,6 +25,13 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  experimental: {
+    /**
+     * Для загрузок из кабинета правообладателя через rewrite `/v1/*`:
+     * увеличиваем лимит тела запроса в middleware-клиенте (по умолчанию 10MB).
+     */
+    middlewareClientMaxBodySize: "2gb",
+  },
   /**
    * Запросы к http://localhost:3020/v1/* проксируются на Nest API.
    * Так в браузере по адресу веб-порта открывается JSON API (а не 404 Next).
