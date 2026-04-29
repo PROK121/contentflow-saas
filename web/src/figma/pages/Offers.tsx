@@ -1448,7 +1448,7 @@ export function Offers() {
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label>Язык</Label>
+                          <Label>Языки (через запятую, на русском языке полностью)</Label>
                           <input
                             className={fieldClass}
                             value={row.language}
@@ -1523,7 +1523,7 @@ export function Offers() {
               />
             </div>
             <div className="space-y-1 sm:col-span-2">
-              <Label htmlFor="materialsNote">Доп. сведения по материалам (необязательно)</Label>
+              <Label htmlFor="materialsNote">Материалы</Label>
               <Textarea
                 id="materialsNote"
                 className={fieldClass}
