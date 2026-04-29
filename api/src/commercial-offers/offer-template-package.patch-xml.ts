@@ -54,15 +54,15 @@ function buildLoopRow(): string {
 
   return (
     `<w:tr w:rsidR="00A2620A" w14:paraId="AA000001" w14:textId="77777777" w:rsidTr="00A2620A">` +
-    cell(458, '', '[[#titles]][[rowNum]]', '01') +
-    cell(2803, '<w:vAlign w:val="bottom"/>', '[[title]]', '02') +
-    cell(1134, `${borderRight}<w:vAlign w:val="center"/>`, '[[seriesCount]]', '03') +
-    cell(1701, `${borderLeft}<w:vAlign w:val="center"/>`, '[[genre]]', '04') +
-    cell(1275, '<w:vAlign w:val="bottom"/>', '[[runtime]]', '05') +
-    cell(993, `${borderRightBlack}<w:vAlign w:val="bottom"/>`, '[[productionYear]]', '06') +
-    cell(2268, `${borderFull7}<w:vAlign w:val="center"/>`, '[[theatricalRelease]]', '07') +
-    cell(1559, `${borderFull8}<w:vAlign w:val="center"/>`, '[[language]]', '08') +
-    cell(1984, `${borderFull9}<w:vAlign w:val="center"/>`, '[[price]][[/titles]]', '09') +
+    cell(458, '<w:vAlign w:val="top"/>', '[[#titles]][[rowNum]]', '01') +
+    cell(2803, '<w:vAlign w:val="top"/>', '[[title]]', '02') +
+    cell(1134, `${borderRight}<w:vAlign w:val="top"/>`, '[[seriesCount]]', '03') +
+    cell(1701, `${borderLeft}<w:vAlign w:val="top"/>`, '[[genre]]', '04') +
+    cell(1275, '<w:vAlign w:val="top"/>', '[[runtime]]', '05') +
+    cell(993, `${borderRightBlack}<w:vAlign w:val="top"/>`, '[[productionYear]]', '06') +
+    cell(2268, `${borderFull7}<w:vAlign w:val="top"/>`, '[[theatricalRelease]]', '07') +
+    cell(1559, `${borderFull8}<w:vAlign w:val="top"/>`, '[[language]]', '08') +
+    cell(1984, `${borderFull9}<w:vAlign w:val="top"/>`, '[[price]][[/titles]]', '09') +
     `</w:tr>`
   );
 }

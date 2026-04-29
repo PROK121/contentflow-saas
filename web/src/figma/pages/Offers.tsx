@@ -415,6 +415,15 @@ export function Offers() {
         buyerOrgId: offerForm.buyerOrgId,
         offerDate: offerForm.offerDate,
         workTitle: offerForm.workTitle.trim(),
+        contentTitle: offerForm.contentTitle.trim(),
+        productionYear: offerForm.productionYear.trim(),
+        contentFormat: offerForm.contentFormat.trim(),
+        genre: offerForm.genre.trim(),
+        seriesCount: offerForm.seriesCount.trim(),
+        runtime: offerForm.runtime.trim(),
+        theatricalRelease: offerForm.theatricalRelease.trim(),
+        rightsHolder: offerForm.rightsHolder.trim(),
+        contentLanguage: offerForm.contentLanguage.trim(),
         exclusivity: offerForm.exclusivity,
         rightsOpeningProcedure: offerForm.rightsOpeningProcedure.trim(),
         remunerationKztNet: offerForm.remunerationKztNet.trim(),
@@ -426,6 +435,17 @@ export function Offers() {
       };
 
       if (offerTemplateKind === "platforms_package") {
+        const firstTitle = packageTitles[0];
+        body.contentTitle = offerForm.contentTitle.trim() || firstTitle?.title?.trim() || "Пакетный оффер";
+        body.productionYear = offerForm.productionYear.trim() || firstTitle?.productionYear?.trim() || "";
+        body.contentFormat = offerForm.contentFormat.trim() || "Пакет";
+        body.genre = offerForm.genre.trim() || firstTitle?.genre?.trim() || "";
+        body.seriesCount = offerForm.seriesCount.trim() || firstTitle?.seriesCount?.trim() || "";
+        body.runtime = offerForm.runtime.trim() || firstTitle?.runtime?.trim() || "";
+        body.theatricalRelease =
+          offerForm.theatricalRelease.trim() || firstTitle?.theatricalRelease?.trim() || "";
+        body.rightsHolder = offerForm.rightsHolder.trim() || "ТОО «Growix Content Group»";
+        body.contentLanguage = offerForm.contentLanguage.trim() || firstTitle?.language?.trim() || "";
         body.titles = packageTitles.map((t) => ({
           title: t.title.trim(),
           seriesCount: t.seriesCount.trim(),
