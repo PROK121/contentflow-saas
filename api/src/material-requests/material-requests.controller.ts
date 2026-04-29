@@ -17,7 +17,7 @@ import {
 import { MaterialRequestStatus } from '@prisma/client';
 import { createReadStream, existsSync } from 'fs';
 import type { Request } from 'express';
-import type { AuthUserView } from '../auth/auth-user.types';
+import { assertManagerOrAdmin } from '../auth/rbac';
 import {
   CreateMaterialRequestDto,
   ReviewUploadDto,
@@ -25,10 +25,6 @@ import {
 } from './dto';
 import { MATERIAL_SLOTS } from './material-slots';
 import { MaterialRequestsService } from './material-requests.service';
-
-function authUser(req: Request): AuthUserView {
-  return req.user as AuthUserView;
-}
 
 /// CRM-сторона работы с запросами материалов. Доступна всем
 /// аутентифицированным пользователям, кроме rights_owner — последние
@@ -50,7 +46,10 @@ export class MaterialRequestsController {
   list(
     @Query('catalogItemId') catalogItemId?: string,
     @Query('status') status?: string,
+    @Req() req?: Request,
   ) {
+    if (!req) throw new BadRequestException('Auth required');
+    assertManagerOrAdmin(req);
     if (catalogItemId) {
       return this.service.listForCatalogItem(catalogItemId);
     }
@@ -66,22 +65,25 @@ export class MaterialRequestsController {
 
   @Post('material-requests')
   create(@Body() dto: CreateMaterialRequestDto, @Req() req: Request) {
-    const user = authUser(req);
+    const user = assertManagerOrAdmin(req);
     return this.service.createForCatalogItem(dto, user.id);
   }
 
   @Get('material-requests/:id')
-  getOne(@Param('id') id: string) {
+  getOne(@Param('id') id: string, @Req() req: Request) {
+    assertManagerOrAdmin(req);
     return this.service.findByIdForManager(id);
   }
 
   @Patch('material-requests/:id')
-  patch(@Param('id') id: string, @Body() dto: UpdateMaterialRequestDto) {
+  patch(@Param('id') id: string, @Body() dto: UpdateMaterialRequestDto, @Req() req: Request) {
+    assertManagerOrAdmin(req);
     return this.service.update(id, dto);
   }
 
   @Delete('material-requests/:id')
-  cancel(@Param('id') id: string) {
+  cancel(@Param('id') id: string, @Req() req: Request) {
+    assertManagerOrAdmin(req);
     return this.service.cancel(id);
   }
 
@@ -93,7 +95,8 @@ export class MaterialRequestsController {
     @Body() dto: ReviewUploadDto,
     @Req() req: Request,
   ) {
-    return this.service.reviewUpload(id, uploadId, authUser(req), dto);
+    const user = assertManagerOrAdmin(req);
+    return this.service.reviewUpload(id, uploadId, user, dto);
   }
 
   @Get('material-requests/:id/uploads/:uploadId/download')
@@ -101,7 +104,10 @@ export class MaterialRequestsController {
     @Param('id') id: string,
     @Param('uploadId') uploadId: string,
     @Query('inline') inline?: string,
+    @Req() req?: Request,
   ) {
+    if (!req) throw new BadRequestException('Auth required');
+    assertManagerOrAdmin(req);
     const meta = await this.service.getUploadFileMeta(id, uploadId);
     if (!existsSync(meta.absPath)) {
       throw new NotFoundException('Файл недоступен');

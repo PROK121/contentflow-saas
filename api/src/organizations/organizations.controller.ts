@@ -13,7 +13,7 @@ import {
 import { HolderFinanceVisibility, OrganizationType, UserRole } from '@prisma/client';
 import { IsIn } from 'class-validator';
 import type { Request } from 'express';
-import { AuthUserView } from '../auth/auth-user.types';
+import { assertManagerOrAdmin } from '../auth/rbac';
 import { OrganizationsService } from './organizations.service';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 
@@ -27,25 +27,19 @@ class SetHolderUserVisibilityDto {
   visibility!: 'inherit' | HolderFinanceVisibility;
 }
 
-function assertManagerOrAdmin(req: Request) {
-  const me = req.user as AuthUserView | undefined;
-  if (!me) throw new BadRequestException('Auth required');
-  if (me.role !== UserRole.admin && me.role !== UserRole.manager) {
-    throw new ForbiddenException('Недостаточно прав: нужна роль менеджера');
-  }
-}
-
 @Controller('organizations')
 export class OrganizationsController {
   constructor(private readonly organizationsService: OrganizationsService) {}
 
   @Get()
-  list(@Query('type') type?: OrganizationType) {
+  list(@Query('type') type: OrganizationType | undefined, @Req() req: Request) {
+    assertManagerOrAdmin(req);
     return this.organizationsService.list(type);
   }
 
   @Post()
-  create(@Body() body: CreateOrganizationDto) {
+  create(@Body() body: CreateOrganizationDto, @Req() req: Request) {
+    assertManagerOrAdmin(req);
     return this.organizationsService.create(body);
   }
 
@@ -96,7 +90,10 @@ export class OrganizationsController {
   audit(
     @Param('id') id: string,
     @Query('limit') limit?: string,
+    @Req() req?: Request,
   ) {
+    if (!req) throw new BadRequestException('Auth required');
+    assertManagerOrAdmin(req);
     const parsed = limit ? Number.parseInt(limit, 10) : undefined;
     return this.organizationsService.listAuditLog(
       id,

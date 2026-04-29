@@ -191,6 +191,33 @@ const DICTIONARIES = {
   ] as const,
 };
 
+const COMPANY_TEMPLATES = [
+  {
+    title: "Дистрибуционный договор — шаблон (апрель 2026)",
+    href: "/company-templates/distribution-agreement-template-april-2026.docx",
+  },
+  {
+    title: "Кинопоиск — приложение (шаблон)",
+    href: "/company-templates/kinopoisk-appendix-template.docx",
+  },
+  {
+    title: "Кинопоиск — лицензионный договор (шаблон)",
+    href: "/company-templates/kinopoisk-license-agreement-template.docx",
+  },
+  {
+    title: "Оффер для площадок — пакет (шаблон)",
+    href: "/company-templates/platform-offer-package-template.docx",
+  },
+  {
+    title: "Оффер для площадок — шаблон",
+    href: "/company-templates/platform-offer-template.docx",
+  },
+  {
+    title: "Оффер для ПО — шаблон",
+    href: "/company-templates/rights-holder-offer-template.docx",
+  },
+] as const;
+
 function titleId(item: CatalogItemRow): string {
   const s = item.slug?.trim();
   if (s) return `T-${s.slice(0, 24)}`;
@@ -763,6 +790,9 @@ export function RightsBase() {
             <TabsTrigger value="dict" className="text-xs sm:text-sm">
               Справочники
             </TabsTrigger>
+            <TabsTrigger value="templates" className="text-xs sm:text-sm">
+              Шаблоны компании
+            </TabsTrigger>
           </TabsList>
 
           {/* Toolbar: expiry filter + CSV export */}
@@ -1100,7 +1130,6 @@ export function RightsBase() {
 
         <TabsContent value="dict" className="mt-0">
           <div className="space-y-8">
-
             {/* ── Введение ── */}
             <div className="rounded-xl border border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-900 p-5">
               <h2 className="text-base font-bold text-blue-900 dark:text-blue-200 mb-2">📖 Справочник по Базе прав</h2>
@@ -1425,6 +1454,30 @@ export function RightsBase() {
                 <p className="text-[11px] text-muted-foreground mt-2">💡 WW = весь мир. CIS = страны СНГ. CA = Центральная Азия (KZ+UZ+KG+TJ+TM). Для конкретной страны — используйте её отдельный код.</p>
               </div>
 
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="templates" className="mt-0">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-900 p-5">
+            <h2 className="text-base font-bold text-emerald-900 dark:text-emerald-200 mb-2">
+              Шаблоны договоров и офферов компании
+            </h2>
+            <p className="text-sm text-emerald-800 dark:text-emerald-300 leading-relaxed mb-4">
+              Доступно для всех пользователей сервиса. Выберите нужный шаблон и скачайте DOCX.
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {COMPANY_TEMPLATES.map((tpl) => (
+                <a
+                  key={tpl.href}
+                  href={tpl.href}
+                  download
+                  className="inline-flex items-center justify-between rounded-lg border border-emerald-300/70 bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-emerald-100/60 dark:hover:bg-emerald-900/40 transition-colors"
+                >
+                  <span className="truncate pr-2">{tpl.title}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">DOCX</span>
+                </a>
+              ))}
             </div>
           </div>
         </TabsContent>

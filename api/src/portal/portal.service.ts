@@ -58,7 +58,7 @@ export class PortalService {
     return {
       contentCount,
       activeLicensesCount,
-      pendingPayoutsTotal: pending.length === 0 ? '0' : pendingPayoutsTotal,
+      pendingPayoutsTotal,
       items: portalItems,
     };
   }
