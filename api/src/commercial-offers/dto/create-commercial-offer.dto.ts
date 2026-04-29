@@ -116,6 +116,27 @@ export class CreateCommercialOfferDto {
   @IsBoolean()
   digitization?: boolean;
 
+  /** Платформы (виды прав) — только для шаблона ПО */
+  @IsOptional()
+  @IsBoolean()
+  platformTV?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  platformVOD?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  platformShipRights?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  platformPublicRights?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  sublicensing?: boolean;
+
   @IsOptional()
   @IsString()
   @MaxLength(500)

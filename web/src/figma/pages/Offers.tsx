@@ -109,6 +109,11 @@ type OfferFormState = {
   catalogInclusion: boolean;
   contractsAdmin: boolean;
   digitization: boolean;
+  platformTV: boolean;
+  platformVOD: boolean;
+  platformShipRights: boolean;
+  platformPublicRights: boolean;
+  sublicensing: boolean;
   licenseTerm: string;
   rightsOpeningProcedure: string;
   remunerationKztNet: string;
@@ -142,6 +147,11 @@ function defaultOfferForm(): OfferFormState {
     catalogInclusion: false,
     contractsAdmin: false,
     digitization: false,
+    platformTV: false,
+    platformVOD: false,
+    platformShipRights: false,
+    platformPublicRights: false,
+    sublicensing: false,
     licenseTerm: OFFER_DEFAULT_LICENSE_TERM,
     rightsOpeningProcedure: "",
     remunerationKztNet: "",
@@ -402,6 +412,11 @@ export function Offers() {
         catalogInclusion: offerForm.catalogInclusion,
         contractsAdmin: offerForm.contractsAdmin,
         digitization: offerForm.digitization,
+        platformTV: offerForm.platformTV,
+        platformVOD: offerForm.platformVOD,
+        platformShipRights: offerForm.platformShipRights,
+        platformPublicRights: offerForm.platformPublicRights,
+        sublicensing: offerForm.sublicensing,
       };
       if (offerForm.distributorLine.trim()) {
         body.distributorLine = offerForm.distributorLine.trim();
@@ -1198,6 +1213,40 @@ export function Offers() {
                 <option value="non_exclusive">Не исключительные права</option>
               </select>
             </div>
+            {offerTemplateKind === "po" && (
+              <div className="space-y-1 sm:col-span-2">
+                <Label>Платформы (Виды прав)</Label>
+                <div className="flex flex-wrap gap-3 rounded-md border border-border/50 bg-input-background px-3 py-2">
+                  {(
+                    [
+                      { key: "platformTV", label: "TV" },
+                      { key: "platformVOD", label: "VOD" },
+                      { key: "platformShipRights", label: "Ship rights / IFEC" },
+                      { key: "platformPublicRights", label: "Public rights" },
+                    ] as { key: keyof typeof offerForm; label: string }[]
+                  ).map(({ key, label }) => (
+                    <label key={key} className="flex items-center gap-1.5 text-xs">
+                      <Checkbox
+                        checked={!!offerForm[key]}
+                        onCheckedChange={(v) =>
+                          setOfferForm((s) => ({ ...s, [key]: !!v }))
+                        }
+                      />
+                      {label}
+                    </label>
+                  ))}
+                  <label className="flex items-center gap-1.5 text-xs border-l border-border/50 pl-3 ml-1">
+                    <Checkbox
+                      checked={offerForm.sublicensing}
+                      onCheckedChange={(v) =>
+                        setOfferForm((s) => ({ ...s, sublicensing: !!v }))
+                      }
+                    />
+                    Разрешено сублицензирование
+                  </label>
+                </div>
+              </div>
+            )}
             <div className="space-y-1 sm:col-span-2">
               <Label>Территория (пусто — «Весь мир»)</Label>
               <div className="flex flex-wrap gap-2 rounded-md border border-border/50 bg-input-background px-3 py-2">

@@ -13,6 +13,7 @@ const T = {
   rightsHolder: '[[rightsHolder]]',
   contentLanguage: '[[contentLanguage]]',
   rightsParagraph: '[[rightsParagraph]]',
+  rightsPlatforms: '[[rightsPlatforms]]',
   territory: '[[territory]]',
   localization: '[[localization]]',
   materialsNote: '[[materialsNote]]',
@@ -111,6 +112,27 @@ export function patchOfferTemplateXml(xml: string): string {
   const rightsPara = `<w:p w14:paraId="28B9EE87" w14:textId="34759211" w:rsidR="001756BE" w:rsidRPr="001756BE" w:rsidRDefault="001756BE" w:rsidP="00D77535"><w:pPr><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/></w:rPr><w:t>${T.rightsParagraph}</w:t></w:r></w:p>`;
 
   s = s.replace(/<w:p w14:paraId="28B9EE87"[\s\S]*?<\/w:p>/, rightsPara);
+
+  // Новая строка таблицы «Виды прав» — вставляется сразу после строки «Права на дистрибуцию».
+  // Колонки: 3403 + 6804 twips (взято из оригинального шаблона).
+  const platformsRowXml =
+    `<w:tr w:rsidR="001756BE" w:rsidRPr="00A71804" w14:paraId="CF000001" w14:textId="77777777" w:rsidTr="00D77535">` +
+    `<w:tc><w:tcPr><w:tcW w:w="3403" w:type="dxa"/></w:tcPr>` +
+    `<w:p w14:paraId="CF000002" w14:textId="77777777" w:rsidR="001756BE" w:rsidRDefault="001756BE" w:rsidP="00D77535">` +
+    `<w:pPr><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:b/><w:bCs/></w:rPr></w:pPr>` +
+    `<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:b/><w:bCs/></w:rPr>` +
+    `<w:t>Виды прав</w:t></w:r></w:p></w:tc>` +
+    `<w:tc><w:tcPr><w:tcW w:w="6804" w:type="dxa"/></w:tcPr>` +
+    `<w:p w14:paraId="CF000003" w14:textId="77777777" w:rsidR="001756BE" w:rsidRDefault="001756BE" w:rsidP="00D77535">` +
+    `<w:pPr><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/></w:rPr></w:pPr>` +
+    `<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/></w:rPr>` +
+    `<w:t>${T.rightsPlatforms}</w:t></w:r></w:p></w:tc>` +
+    `</w:tr>`;
+  // Ищем закрытие строки, содержащей para 28B9EE87, и вставляем новую строку после неё.
+  s = s.replace(
+    /(<w:p w14:paraId="28B9EE87"[\s\S]*?<\/w:p>[\s\S]*?<\/w:tr>)/,
+    `$1${platformsRowXml}`,
+  );
 
   const territoryPara = `<w:p w14:paraId="2C326910" w14:textId="77777777" w:rsidR="001756BE" w:rsidRPr="001756BE" w:rsidRDefault="001756BE" w:rsidP="00D77535"><w:pPr><w:jc w:val="both"/><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/></w:rPr></w:pPr><w:r w:rsidRPr="001756BE"><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/></w:rPr><w:t>${T.territory}</w:t></w:r></w:p>`;
 
