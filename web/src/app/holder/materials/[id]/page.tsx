@@ -466,13 +466,18 @@ function xhrUpload(
           resolve(null);
         }
       } else {
+        // 502/503/504 — Render gateway или холодный старт сервера
+        if (xhr.status === 502 || xhr.status === 503 || xhr.status === 504) {
+          reject(new Error(`API временно недоступен (HTTP ${xhr.status}). Повторите загрузку через несколько секунд.`));
+          return;
+        }
         let msg = `HTTP ${xhr.status}`;
         try {
-          const parsed = JSON.parse(text);
+          const parsed = JSON.parse(text) as { message?: unknown };
           if (parsed && typeof parsed.message === "string") {
             msg = parsed.message;
           } else if (parsed && Array.isArray(parsed.message)) {
-            msg = parsed.message.join("; ");
+            msg = (parsed.message as string[]).join("; ");
           }
         } catch {
           /* ignore */
@@ -480,7 +485,7 @@ function xhrUpload(
         reject(new Error(msg));
       }
     };
-    xhr.onerror = () => reject(new Error("Сетевая ошибка"));
+    xhr.onerror = () => reject(new Error("Сетевая ошибка. Проверьте подключение и повторите попытку."));
     xhr.send(data);
   });
 }
