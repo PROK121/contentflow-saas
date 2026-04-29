@@ -904,7 +904,7 @@ export function DealFlowView({ dealId }: { dealId: string }) {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">
-                Net (Лицензионное вознаграждение правообладателю)
+                Вознаграждение
               </p>
               <p className="font-medium">
                 {formatMoneyAmount(pay.net)} {pay.currency}
