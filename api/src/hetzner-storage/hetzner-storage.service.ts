@@ -8,7 +8,7 @@ const SftpClient = require('ssh2-sftp-client');
  * Сервис для работы с Hetzner Storage Box через SFTP.
  * Хост:     u585689.your-storagebox.de
  * Пользователь: u585689
- * Порт:     22
+ * Порт:     23
  *
  * Переменные окружения:
  *   HETZNER_STORAGE_HOST     — хост (опц., по умолч. u585689.your-storagebox.de)
@@ -22,7 +22,7 @@ export class HetznerStorageService implements OnModuleDestroy {
   private readonly host: string;
   private readonly username: string;
   private readonly password: string;
-  private readonly port = 22;
+  private readonly port = 23;
 
   constructor(private readonly config: ConfigService) {
     this.host =
