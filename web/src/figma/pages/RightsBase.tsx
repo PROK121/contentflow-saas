@@ -1000,7 +1000,7 @@ export function RightsBase() {
                     <Td>{m.contactName ?? "—"}</Td>
                     <Td>{m.contactEmail ?? "—"}</Td>
                     <Td>{m.contactPhone ?? "—"}</Td>
-                    <Td className="max-w-[14rem] truncate" title={m.notes ?? ""}>{m.notes ?? "—"}</Td>
+                    <Td className="max-w-[14rem] whitespace-normal break-words">{m.notes ?? "—"}</Td>
                   </tr>
                 );
               })}
