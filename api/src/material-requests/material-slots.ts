@@ -20,6 +20,7 @@ export interface MaterialSlotDef {
   allowedMimePrefixes: string[];
 }
 
+const HUNDRED_GB = 100 * 1024 * 1024 * 1024;
 const FOUR_GB = 4 * 1024 * 1024 * 1024;
 const FIFTY_MB = 50 * 1024 * 1024;
 
@@ -28,9 +29,9 @@ export const MATERIAL_SLOTS: MaterialSlotDef[] = [
     key: 'master_video',
     label: 'Мастер-копия',
     description:
-      'Финальный мастер-файл (ProRes, DCP, MXF или MP4 high-bitrate). До 4 ГБ на файл.',
+      'Финальный мастер-файл (ProRes, DCP, MXF или MP4 high-bitrate). До 100 ГБ на файл.',
     group: 'video',
-    maxSizeBytes: FOUR_GB,
+    maxSizeBytes: HUNDRED_GB,
     allowedMimePrefixes: ['video/'],
   },
   {
@@ -44,9 +45,9 @@ export const MATERIAL_SLOTS: MaterialSlotDef[] = [
   {
     key: 'trailer',
     label: 'Трейлер',
-    description: 'Промо-ролик длительностью 1–3 минуты.',
+    description: 'Промо-ролик длительностью 1–3 минуты. До 100 ГБ на файл.',
     group: 'video',
-    maxSizeBytes: FOUR_GB,
+    maxSizeBytes: HUNDRED_GB,
     allowedMimePrefixes: ['video/'],
   },
   {

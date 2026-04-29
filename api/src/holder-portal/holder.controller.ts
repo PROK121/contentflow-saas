@@ -140,9 +140,9 @@ function escapeForHtmlInline(s: string): string {
 }
 
 /// Multer-настройка для загрузок материалов из кабинета правообладателя.
-/// Лимит 4 ГБ — самые тяжёлые слоты (master_video). Конкретный слот
+/// Лимит 100 ГБ — для мастер-копий и трейлеров. Конкретный слот
 /// проверяется в сервисе.
-const MATERIAL_UPLOAD_LIMIT = 4 * 1024 * 1024 * 1024;
+const MATERIAL_UPLOAD_LIMIT = 100 * 1024 * 1024 * 1024;
 
 /// Кабинет правообладателя.
 /// Все endpoints под /v1/holder/* — закрыты HolderGuard (роль rights_owner +
