@@ -84,6 +84,7 @@ type CatalogPickRow = {
     startAt: string | null;
     endAt: string | null;
     durationMonths: number | null;
+    languageRights?: string[];
   }>;
 };
 
@@ -1055,9 +1056,11 @@ export function Offers() {
                       ...prev,
                       ...fromCat,
                       exclusivity: exclusivityFromCat ?? prev.exclusivity,
-                      contentLanguage: prev.contentLanguage.trim()
-                        ? prev.contentLanguage
-                        : tr("crm", "offersRussianDefault"),
+                      contentLanguage: fromCat.contentLanguage.trim()
+                        ? fromCat.contentLanguage
+                        : prev.contentLanguage.trim()
+                          ? prev.contentLanguage
+                          : tr("crm", "offersRussianDefault"),
                     };
                   });
                 }}

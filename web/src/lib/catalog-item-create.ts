@@ -330,6 +330,7 @@ export type CatalogLicenseTermLite = {
   startAt: string | null;
   endAt: string | null;
   durationMonths: number | null;
+  languageRights?: string[];
 };
 
 /** Территории (подписи) и срок(и) лицензии из строк каталога → оффер. */
@@ -411,6 +412,7 @@ export function catalogToOfferContentFields(
   distributorLine: string;
   territory: string;
   licenseTerm: string;
+  contentLanguage: string;
 } {
   const meta = readCatalogOfferSourceMeta(item.metadata);
   let ep =
@@ -422,6 +424,16 @@ export function catalogToOfferContentFields(
   const { territory, licenseTerm } = catalogToOfferTerritoryAndTerm(
     item.licenseTerms,
   );
+
+  // Собираем уникальные языки из всех лицензионных строк
+  const langSet = new Set<string>();
+  for (const t of item.licenseTerms ?? []) {
+    for (const lang of t.languageRights ?? []) {
+      if (lang.trim()) langSet.add(lang.trim());
+    }
+  }
+  const contentLanguage = langSet.size > 0 ? [...langSet].join(", ") : "";
+
   return {
     workTitle: item.title,
     contentTitle: (meta.contentTitle?.trim() || item.title).trim(),
@@ -438,5 +450,6 @@ export function catalogToOfferContentFields(
     distributorLine: meta.distributorLine?.trim() ?? "",
     territory,
     licenseTerm,
+    contentLanguage,
   };
 }
