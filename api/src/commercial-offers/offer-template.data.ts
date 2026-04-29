@@ -35,23 +35,19 @@ export function offerDtoToTemplateData(
         : 'Не исключительные права';
   const rightsParagraph = rightsLead;
 
+  // Дополнительные условия — через запятую
   const parts: string[] = [];
   if (dto.promoSupport) parts.push('Промо поддержка');
-  if (dto.catalogInclusion)
-    parts.push('Добавление проекта в каталог компании ');
-  if (dto.contractsAdmin) {
-    parts.push(
-      'Заключение договоров, ведение документооборота, предоставление отчетности;',
-    );
-  }
-  if (dto.digitization) parts.push('Оцифровка материала ');
-  const additionalConditions = parts.length > 0 ? parts.join(' ') : '\u00a0';
+  if (dto.catalogInclusion) parts.push('Добавление проекта в каталог компании');
+  if (dto.contractsAdmin) parts.push('Заключение договоров, ведение документооборота, предоставление отчетности');
+  if (dto.digitization) parts.push('Оцифровка материала');
+  const additionalConditions = parts.length > 0 ? parts.join(', ') : ' ';
 
-  const materialsNote = dto.materialsNote?.trim() || '\u00a0';
+  const materialsNote = dto.materialsNote?.trim() || ' ';
 
-  // \u0412\u0438\u0434\u044b \u043f\u0440\u0430\u0432 \u2014 \u0444\u0438\u043a\u0441\u0438\u0440\u043e\u0432\u0430\u043d\u043d\u044b\u0439 \u0442\u0435\u043a\u0441\u0442
+  // Виды прав — фиксированный текст
   const rightsPlatforms =
-    '\u043f\u0440\u0430\u0432\u0430 \u043d\u0430 \u0441\u0443\u0431\u043b\u0438\u0446\u0435\u043d\u0437\u0438\u044e \u0442\u0440\u0435\u0442\u044c\u0438\u043c \u043b\u0438\u0446\u0430\u043c \u0441\u043b\u0435\u0434\u0443\u044e\u0449\u0438\u0445 \u043f\u0440\u0430\u0432: VOD (AVOD, SVOD, FVOD, PVOD, TVOD, EST), \u0442\u0435\u043b\u0435\u0432\u0438\u0437\u0438\u043e\u043d\u043d\u044b\u0435 \u043f\u0440\u0430\u0432\u0430: \u044d\u0444\u0438\u0440\u043d\u043e\u0435 (Free TV) \u0438 \u043f\u043b\u0430\u0442\u043d\u043e\u0435 \u0442\u0435\u043b\u0435\u0432\u0438\u0434\u0435\u043d\u0438\u0435 (Pay TV), IPTV, shipping rights: \u043d\u0430 \u043f\u043e\u043a\u0430\u0437 \u0432 \u043c\u0443\u043b\u044c\u0442\u0438\u043c\u0435\u0434\u0438\u0439\u043d\u044b\u0445 \u0443\u0441\u0442\u0440\u043e\u0439\u0441\u0442\u0432\u0430\u0445 \u043f\u0435\u0440\u0435\u0432\u043e\u0437\u0447\u0438\u043a\u043e\u0432, \u043f\u0440\u0430\u0432\u043e \u043f\u0440\u043e\u043c\u043e\u0443\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u044f';
+    'права на сублицензию третьим лицам следующих прав: VOD (AVOD, SVOD, FVOD, PVOD, TVOD, EST), телевизионные права: эфирное (Free TV) и платное телевидение (Pay TV), IPTV, shipping rights: на показ в мультимедийных устройствах перевозчиков, право промоутирования';
 
   return {
     offerDateRu,
