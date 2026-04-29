@@ -35,6 +35,13 @@ import { ContinueOnPhoneCard } from "../ContinueOnPhoneCard";
 interface Props {
   params: Promise<{ id: string }>;
 }
+type UploadProgressInfo = {
+  pct: number;
+  loadedBytes: number;
+  totalBytes: number;
+  speedBytesPerSec: number;
+  etaSec: number | null;
+};
 
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
@@ -216,7 +223,7 @@ function SlotCard({
   onError: (msg: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
-  const [progress, setProgress] = useState<number | null>(null);
+  const [progress, setProgress] = useState<UploadProgressInfo | null>(null);
   const [drag, setDrag] = useState(false);
   const [previewUploadId, setPreviewUploadId] = useState<string | null>(null);
 
@@ -236,7 +243,13 @@ function SlotCard({
       return;
     }
     setBusy(true);
-    setProgress(0);
+    setProgress({
+      pct: 0,
+      loadedBytes: 0,
+      totalBytes: file.size,
+      speedBytesPerSec: 0,
+      etaSec: null,
+    });
     try {
       const fd = new FormData();
       fd.append("slot", slotKey);
@@ -246,7 +259,7 @@ function SlotCard({
       await xhrUpload(
         `/v1/holder/material-requests/${requestId}/uploads`,
         fd,
-        (pct) => setProgress(pct),
+        (info) => setProgress(info),
       );
       onChange();
     } catch (e) {
@@ -389,12 +402,21 @@ function SlotCard({
             <Upload className="size-5" />
             {busy ? (
               <>
-                <span>Загрузка…{progress != null ? ` ${progress}%` : ""}</span>
+                <span>
+                  Загрузка…
+                  {progress != null ? ` ${progress.pct}%` : ""}
+                  {progress && progress.speedBytesPerSec > 0
+                    ? ` · ${formatBytes(progress.speedBytesPerSec)}/с`
+                    : ""}
+                  {progress?.etaSec != null
+                    ? ` · осталось ${formatDurationShort(progress.etaSec)}`
+                    : ""}
+                </span>
                 {progress != null ? (
                   <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-muted">
                     <div
                       className="h-full bg-primary transition-all"
-                      style={{ width: `${progress}%` }}
+                      style={{ width: `${progress.pct}%` }}
                     />
                   </div>
                 ) : null}
@@ -446,7 +468,7 @@ function SlotCard({
 function xhrUpload(
   url: string,
   data: FormData,
-  onProgress: (pct: number) => void,
+  onProgress: (info: UploadProgressInfo) => void,
 ): Promise<unknown> {
   const maxAttempts = 3;
   const transientStatuses = new Set([502, 503, 504]);
@@ -454,11 +476,22 @@ function xhrUpload(
   function runAttempt(attempt: number): Promise<unknown> {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
+      const startedAt = Date.now();
       xhr.open("POST", url);
       xhr.withCredentials = true;
       xhr.upload.onprogress = (ev) => {
         if (ev.lengthComputable) {
-          onProgress(Math.round((ev.loaded / ev.total) * 100));
+          const elapsedSec = Math.max((Date.now() - startedAt) / 1000, 0.2);
+          const speed = ev.loaded / elapsedSec;
+          const remaining = ev.total - ev.loaded;
+          const eta = speed > 0 && remaining > 0 ? Math.round(remaining / speed) : 0;
+          onProgress({
+            pct: Math.round((ev.loaded / ev.total) * 100),
+            loadedBytes: ev.loaded,
+            totalBytes: ev.total,
+            speedBytesPerSec: Number.isFinite(speed) ? speed : 0,
+            etaSec: Number.isFinite(eta) ? eta : null,
+          });
         }
       };
       xhr.onload = () => {
@@ -472,7 +505,13 @@ function xhrUpload(
           return;
         }
         if (transientStatuses.has(xhr.status) && attempt < maxAttempts) {
-          onProgress(0);
+          onProgress({
+            pct: 0,
+            loadedBytes: 0,
+            totalBytes: 0,
+            speedBytesPerSec: 0,
+            etaSec: null,
+          });
           setTimeout(() => {
             void runAttempt(attempt + 1).then(resolve).catch(reject);
           }, 1500 * attempt);
@@ -501,7 +540,13 @@ function xhrUpload(
       };
       xhr.onerror = () => {
         if (attempt < maxAttempts) {
-          onProgress(0);
+          onProgress({
+            pct: 0,
+            loadedBytes: 0,
+            totalBytes: 0,
+            speedBytesPerSec: 0,
+            etaSec: null,
+          });
           setTimeout(() => {
             void runAttempt(attempt + 1).then(resolve).catch(reject);
           }, 1500 * attempt);
@@ -518,4 +563,11 @@ function xhrUpload(
   }
 
   return runAttempt(1);
+}
+
+function formatDurationShort(sec: number): string {
+  if (sec < 60) return `${sec}с`;
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return s === 0 ? `${m}м` : `${m}м ${s}с`;
 }
