@@ -24,7 +24,6 @@ import {
   moneyValuesEqual,
   normalizeMoneyInput,
 } from "@/lib/format-money";
-import { DEMO_OWNER_USER_ID } from "@/lib/demo-ids";
 import { DealCatalogRightsCard } from "./DealCatalogRightsCard";
 import {
   AlertDialog,
@@ -426,7 +425,6 @@ export function DealFlowView({ dealId }: { dealId: string }) {
       const fd = new FormData();
       fd.append("file", pendingFile);
       if (attachNote.trim()) fd.append("message", attachNote.trim());
-      fd.append("userId", DEMO_OWNER_USER_ID);
       await v1FormUpload<unknown>(`/deals/${dealId}/activities/file`, fd);
       setAttachNote("");
       setPendingFile(null);
@@ -858,6 +856,9 @@ export function DealFlowView({ dealId }: { dealId: string }) {
             >
               {attachBusy ? <><Loader2 size={14} className="animate-spin mr-1.5" />Загрузка…</> : "Загрузить файл"}
             </Button>
+            {err && (
+              <p className="mt-2 text-sm text-destructive">{err}</p>
+            )}
           </div>
         </div>
       </section>

@@ -214,15 +214,16 @@ export class DealsController {
   @Post(':id/activities/file')
   @UseInterceptors(FileInterceptor('file', dealFileUploadOptions()))
   async uploadActivityFile(
+    @Req() req: Request,
     @Param('id') dealId: string,
     @UploadedFile() file: Express.Multer.File | undefined,
     @Body('message') message?: string,
-    @Body('userId') userId?: string,
   ) {
     if (!file) throw new BadRequestException('Файл обязателен');
+    const authUser = req.user as AuthUserView | undefined;
     return this.dealsService.addActivityFile(dealId, file, {
       message,
-      userId,
+      userId: authUser?.id,
     });
   }
 
