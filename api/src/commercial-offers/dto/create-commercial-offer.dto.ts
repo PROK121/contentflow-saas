@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsBoolean,
   IsDateString,
   IsEnum,
@@ -9,7 +10,9 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export enum OfferExclusivityDto {
   exclusive = 'exclusive',
@@ -20,6 +23,42 @@ export enum OfferExclusivityDto {
 export enum OfferTemplateKindDto {
   po = 'po',
   platforms = 'platforms',
+  platforms_package = 'platforms_package',
+}
+
+/** Один тайтл в пакетном оффере для площадок. */
+export class TitleItemDto {
+  @IsString()
+  @MaxLength(500)
+  title!: string;
+
+  @IsString()
+  @MaxLength(120)
+  seriesCount!: string;
+
+  @IsString()
+  @MaxLength(200)
+  genre!: string;
+
+  @IsString()
+  @MaxLength(120)
+  runtime!: string;
+
+  @IsString()
+  @MaxLength(32)
+  productionYear!: string;
+
+  @IsString()
+  @MaxLength(500)
+  theatricalRelease!: string;
+
+  @IsString()
+  @MaxLength(120)
+  language!: string;
+
+  @IsString()
+  @MaxLength(500)
+  price!: string;
 }
 
 /** Поля формы соответствуют шаблонам «Оффер для ПО» и «Оффер для Площадок». */
@@ -148,4 +187,11 @@ export class CreateCommercialOfferDto {
   @IsString()
   @MaxLength(500)
   signatoryPlaceholder?: string;
+
+  /** Тайтлы для шаблона «Пакет площадок» (platforms_package). */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TitleItemDto)
+  titles?: TitleItemDto[];
 }

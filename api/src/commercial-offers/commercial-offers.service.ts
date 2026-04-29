@@ -76,7 +76,9 @@ export class CommercialOffersService {
           const templateKind =
             templateKindRaw === OfferTemplateKindDto.platforms
               ? OfferTemplateKindDto.platforms
-              : OfferTemplateKindDto.po;
+              : templateKindRaw === OfferTemplateKindDto.platforms_package
+                ? OfferTemplateKindDto.platforms_package
+                : OfferTemplateKindDto.po;
           const manualStatusRaw = p?.manualStatus;
           const manualStatus =
             manualStatusRaw === ManualOfferStatusDto.agreed
@@ -157,11 +159,17 @@ export class CommercialOffersService {
       dto.buyerOrgId,
     );
     const variant: OfferTemplateVariant =
-      dto.templateKind === OfferTemplateKindDto.platforms ? 'platforms' : 'po';
+      dto.templateKind === OfferTemplateKindDto.platforms_package
+        ? 'platforms_package'
+        : dto.templateKind === OfferTemplateKindDto.platforms
+          ? 'platforms'
+          : 'po';
     const templateKindStored =
-      variant === 'platforms'
-        ? OfferTemplateKindDto.platforms
-        : OfferTemplateKindDto.po;
+      variant === 'platforms_package'
+        ? OfferTemplateKindDto.platforms_package
+        : variant === 'platforms'
+          ? OfferTemplateKindDto.platforms
+          : OfferTemplateKindDto.po;
     const payloadForStore = {
       ...dto,
       clientLegalName,
@@ -169,7 +177,7 @@ export class CommercialOffersService {
     };
     let buf: Buffer;
     try {
-      buf = await renderOfferPdfFromDto(dto, variant);
+      buf = await renderOfferPdfFromDto(dto, variant, clientLegalName);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       throw new ServiceUnavailableException(

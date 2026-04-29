@@ -4,12 +4,19 @@ import Docxtemplater = require('docxtemplater');
 import PizZip = require('pizzip');
 import { CreateCommercialOfferDto } from './dto/create-commercial-offer.dto';
 import { convertDocxBufferToPdf } from './libreoffice-pdf';
-import { offerDtoToTemplateData } from './offer-template.data';
+import { offerDtoToTemplateData, offerDtoToPackageTemplateData } from './offer-template.data';
 import { patchOfferTemplateXml } from './offer-template.patch-xml';
+import { patchPackageTemplateXml } from './offer-template-package.patch-xml';
 
-export type OfferTemplateVariant = 'po' | 'platforms';
+export type OfferTemplateVariant = 'po' | 'platforms' | 'platforms_package';
 
 const patchedZips: Partial<Record<OfferTemplateVariant, Buffer>> = {};
+
+const patchFunctions: Record<OfferTemplateVariant, (xml: string) => string> = {
+  po: patchOfferTemplateXml,
+  platforms: patchOfferTemplateXml,
+  platforms_package: patchPackageTemplateXml,
+};
 
 /**
  * Уменьшаем кегль на ~20%, чтобы оффер стабильно помещался на одну страницу.
@@ -66,11 +73,12 @@ function shrinkParagraphSpacing(xml: string): string {
 }
 
 function templatePath(variant: OfferTemplateVariant): string {
-  const file =
-    variant === 'platforms'
-      ? 'offer-platforms-template.docx'
-      : 'offer-po-template.docx';
-  return path.join(process.cwd(), 'templates', file);
+  const files: Record<OfferTemplateVariant, string> = {
+    po: 'offer-po-template.docx',
+    platforms: 'offer-platforms-template.docx',
+    platforms_package: 'offer-platforms-package-template.docx',
+  };
+  return path.join(process.cwd(), 'templates', files[variant]);
 }
 
 function getPatchedTemplateZip(variant: OfferTemplateVariant): Buffer {
@@ -80,7 +88,7 @@ function getPatchedTemplateZip(variant: OfferTemplateVariant): Buffer {
   const f = zip.file('word/document.xml');
   if (!f) throw new Error('В шаблоне нет word/document.xml');
   let xml = f.asText();
-  xml = patchOfferTemplateXml(xml);
+  xml = patchFunctions[variant](xml);
   xml = shrinkXmlFontSizes(xml);
   xml = shrinkPageMargins(xml);
   xml = shrinkParagraphSpacing(xml);
@@ -103,6 +111,7 @@ function getPatchedTemplateZip(variant: OfferTemplateVariant): Buffer {
 export function renderOfferDocxFromDto(
   dto: CreateCommercialOfferDto,
   variant: OfferTemplateVariant = 'po',
+  clientLegalName?: string,
 ): Buffer {
   const zip = new PizZip(getPatchedTemplateZip(variant));
   const doc = new Docxtemplater(zip, {
@@ -110,8 +119,12 @@ export function renderOfferDocxFromDto(
     linebreaks: true,
     delimiters: { start: '[[', end: ']]' },
   });
+  const data =
+    variant === 'platforms_package'
+      ? offerDtoToPackageTemplateData(dto, clientLegalName ?? '')
+      : offerDtoToTemplateData(dto);
   try {
-    doc.render(offerDtoToTemplateData(dto));
+    doc.render(data);
   } catch (e) {
     const err = e as { properties?: { errors?: unknown } };
     throw new Error(
@@ -127,7 +140,8 @@ export function renderOfferDocxFromDto(
 export async function renderOfferPdfFromDto(
   dto: CreateCommercialOfferDto,
   variant: OfferTemplateVariant = 'po',
+  clientLegalName?: string,
 ): Promise<Buffer> {
-  const docx = renderOfferDocxFromDto(dto, variant);
+  const docx = renderOfferDocxFromDto(dto, variant, clientLegalName);
   return convertDocxBufferToPdf(docx);
 }

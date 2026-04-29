@@ -49,7 +49,31 @@ type ApiDealBuyer = {
   buyer: { legalName: string };
 };
 
-type OfferTemplateKind = "po" | "platforms";
+type OfferTemplateKind = "po" | "platforms" | "platforms_package";
+
+type PackageTitleRow = {
+  title: string;
+  seriesCount: string;
+  genre: string;
+  runtime: string;
+  productionYear: string;
+  theatricalRelease: string;
+  language: string;
+  price: string;
+};
+
+function defaultPackageTitle(): PackageTitleRow {
+  return {
+    title: "",
+    seriesCount: "",
+    genre: "",
+    runtime: "",
+    productionYear: "",
+    theatricalRelease: "",
+    language: "",
+    price: "",
+  };
+}
 
 type CommercialOfferRow = {
   id: string;
@@ -58,7 +82,7 @@ type CommercialOfferRow = {
   archived?: boolean;
   createdAt: string;
   clientLegalName?: string;
-  templateKind?: OfferTemplateKind;
+  templateKind?: OfferTemplateKind | "platforms_package";
   clientSigned?: boolean;
   signedAt?: string | null;
   sourceOfferId?: string | null;
@@ -217,6 +241,7 @@ export function Offers() {
   const [offerDialogOpen, setOfferDialogOpen] = useState(false);
   const [offerTemplateKind, setOfferTemplateKind] = useState<OfferTemplateKind>("po");
   const [offerForm, setOfferForm] = useState<OfferFormState>(() => defaultOfferForm());
+  const [packageTitles, setPackageTitles] = useState<PackageTitleRow[]>([defaultPackageTitle()]);
   const [offerSubmitting, setOfferSubmitting] = useState(false);
   const [offerError, setOfferError] = useState<string | null>(null);
   const [offerDownloadId, setOfferDownloadId] = useState<string | null>(null);
@@ -386,15 +411,6 @@ export function Offers() {
         buyerOrgId: offerForm.buyerOrgId,
         offerDate: offerForm.offerDate,
         workTitle: offerForm.workTitle.trim(),
-        contentTitle: offerForm.contentTitle.trim(),
-        productionYear: offerForm.productionYear.trim(),
-        contentFormat: offerForm.contentFormat.trim(),
-        genre: offerForm.genre.trim(),
-        seriesCount: offerForm.seriesCount.trim(),
-        runtime: offerForm.runtime.trim(),
-        theatricalRelease: offerForm.theatricalRelease.trim(),
-        rightsHolder: offerForm.rightsHolder.trim(),
-        contentLanguage: offerForm.contentLanguage.trim(),
         exclusivity: offerForm.exclusivity,
         rightsOpeningProcedure: offerForm.rightsOpeningProcedure.trim(),
         remunerationKztNet: offerForm.remunerationKztNet.trim(),
@@ -404,6 +420,33 @@ export function Offers() {
         contractsAdmin: offerForm.contractsAdmin,
         digitization: offerForm.digitization,
       };
+
+      if (offerTemplateKind === "platforms_package") {
+        body.titles = packageTitles.map((t) => ({
+          title: t.title.trim(),
+          seriesCount: t.seriesCount.trim(),
+          genre: t.genre.trim(),
+          runtime: t.runtime.trim(),
+          productionYear: t.productionYear.trim(),
+          theatricalRelease: t.theatricalRelease.trim(),
+          language: t.language.trim(),
+          price: t.price.trim(),
+        }));
+      } else {
+        body.contentTitle = offerForm.contentTitle.trim();
+        body.productionYear = offerForm.productionYear.trim();
+        body.contentFormat = offerForm.contentFormat.trim();
+        body.genre = offerForm.genre.trim();
+        body.seriesCount = offerForm.seriesCount.trim();
+        body.runtime = offerForm.runtime.trim();
+        body.theatricalRelease = offerForm.theatricalRelease.trim();
+        body.rightsHolder = offerForm.rightsHolder.trim();
+        body.contentLanguage = offerForm.contentLanguage.trim();
+        if (offerForm.sequelFranchiseTerms.trim()) {
+          body.sequelFranchiseTerms = offerForm.sequelFranchiseTerms.trim();
+        }
+      }
+
       if (offerForm.distributorLine.trim()) {
         body.distributorLine = offerForm.distributorLine.trim();
       }
@@ -411,9 +454,6 @@ export function Offers() {
       if (offerForm.localization.trim()) body.localization = offerForm.localization.trim();
       if (offerForm.materialsNote.trim()) body.materialsNote = offerForm.materialsNote.trim();
       if (offerForm.licenseTerm.trim()) body.licenseTerm = offerForm.licenseTerm.trim();
-      if (offerForm.sequelFranchiseTerms.trim()) {
-        body.sequelFranchiseTerms = offerForm.sequelFranchiseTerms.trim();
-      }
       if (offerForm.signatoryPlaceholder.trim()) {
         body.signatoryPlaceholder = offerForm.signatoryPlaceholder.trim();
       }
@@ -428,6 +468,7 @@ export function Offers() {
       setOfferDialogOpen(false);
       setOfferCatalogItemId("");
       setOfferForm(defaultOfferForm());
+      setPackageTitles([defaultPackageTitle()]);
       await loadOffers();
     } catch (e) {
       setOfferError(e instanceof Error ? e.message : tr("crm", "offersCreateError"));
@@ -562,6 +603,22 @@ export function Offers() {
           >
             <Plus size={18} strokeWidth={2.5} />
             <span>{tr("crm", "offersCreatePlatforms")}</span>
+          </button>
+          <button
+            type="button"
+            className="flex shrink-0 items-center gap-2 whitespace-nowrap px-4 py-2.5 border border-border bg-card text-foreground rounded hover:bg-muted/40 transition-colors text-sm font-semibold shadow-sm"
+            onClick={() => {
+              setOfferTemplateKind("platforms_package");
+              setOfferError(null);
+              setOfferCatalogItemId("");
+              setOfferForm(defaultOfferForm());
+              setPackageTitles([defaultPackageTitle()]);
+              void loadDealClients();
+              setOfferDialogOpen(true);
+            }}
+          >
+            <Plus size={18} strokeWidth={2.5} />
+            <span>Пакет площадок</span>
           </button>
           <button
             type="button"
@@ -950,14 +1007,18 @@ export function Offers() {
         <DialogContent className="max-h-[min(90vh,720px)] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>
-              {offerTemplateKind === "platforms"
-                ? tr("crm", "offersDialogTitlePlatforms")
-                : tr("crm", "offersDialogTitlePo")}
+              {offerTemplateKind === "platforms_package"
+                ? "Пакетный оффер для площадок"
+                : offerTemplateKind === "platforms"
+                  ? tr("crm", "offersDialogTitlePlatforms")
+                  : tr("crm", "offersDialogTitlePo")}
             </DialogTitle>
             <DialogDescription>
-              {offerTemplateKind === "platforms"
-                ? tr("crm", "offersDialogDescriptionPlatforms")
-                : tr("crm", "offersDialogDescriptionPo")}
+              {offerTemplateKind === "platforms_package"
+                ? "Оффер с несколькими тайтлами в одной таблице"
+                : offerTemplateKind === "platforms"
+                  ? tr("crm", "offersDialogDescriptionPlatforms")
+                  : tr("crm", "offersDialogDescriptionPo")}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -1018,66 +1079,67 @@ export function Offers() {
                 </p>
               )}
             </div>
-            <div className="space-y-1 sm:col-span-2">
-              <Label htmlFor="offerCatalogItemId">
-                Название произведения («…» в шапке)
-              </Label>
-              <select
-                id="offerCatalogItemId"
-                className={fieldClass}
-                value={offerCatalogItemId}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  setOfferCatalogItemId(id);
-                  const row = catalogPickList.find((r) => r.id === id);
-                  setOfferForm((prev) => {
-                    if (!row) {
+            {offerTemplateKind !== "platforms_package" && (
+              <div className="space-y-1 sm:col-span-2">
+                <Label htmlFor="offerCatalogItemId">
+                  Название произведения («…» в шапке)
+                </Label>
+                <select
+                  id="offerCatalogItemId"
+                  className={fieldClass}
+                  value={offerCatalogItemId}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setOfferCatalogItemId(id);
+                    const row = catalogPickList.find((r) => r.id === id);
+                    setOfferForm((prev) => {
+                      if (!row) {
+                        return {
+                          ...prev,
+                          workTitle: "",
+                          contentTitle: "",
+                          productionYear: "",
+                          contentFormat: "",
+                          genre: "",
+                          seriesCount: "",
+                          runtime: "",
+                          theatricalRelease: "",
+                          rightsHolder: "",
+                          distributorLine: "",
+                          territory: "",
+                          exclusivity: "exclusive",
+                          licenseTerm: OFFER_DEFAULT_LICENSE_TERM,
+                        };
+                      }
+                      const fromCat = catalogToOfferContentFields(row);
+                      const exclusivityFromCat = deriveOfferExclusivityFromCatalog(row);
                       return {
                         ...prev,
-                        workTitle: "",
-                        contentTitle: "",
-                        productionYear: "",
-                        contentFormat: "",
-                        genre: "",
-                        seriesCount: "",
-                        runtime: "",
-                        theatricalRelease: "",
-                        rightsHolder: "",
-                        distributorLine: "",
-                        territory: "",
-                        exclusivity: "exclusive",
-                        licenseTerm: OFFER_DEFAULT_LICENSE_TERM,
+                        ...fromCat,
+                        exclusivity: exclusivityFromCat ?? prev.exclusivity,
+                        contentLanguage: fromCat.contentLanguage.trim()
+                          ? fromCat.contentLanguage
+                          : prev.contentLanguage.trim()
+                            ? prev.contentLanguage
+                            : tr("crm", "offersRussianDefault"),
                       };
-                    }
-                    const fromCat = catalogToOfferContentFields(row);
-                    const exclusivityFromCat =
-                      deriveOfferExclusivityFromCatalog(row);
-                    return {
-                      ...prev,
-                      ...fromCat,
-                      exclusivity: exclusivityFromCat ?? prev.exclusivity,
-                      contentLanguage: fromCat.contentLanguage.trim()
-                        ? fromCat.contentLanguage
-                        : prev.contentLanguage.trim()
-                          ? prev.contentLanguage
-                          : tr("crm", "offersRussianDefault"),
-                    };
-                  });
-                }}
-              >
-                <option value="">Выберите тайтл из каталога контента…</option>
-                {catalogPickList.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.title}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-muted-foreground">
-                Данные подтягиваются из карточки в разделе «Контент» (включая
-                правообладателя). Поля ниже можно изменить вручную перед
-                сохранением.
-              </p>
-            </div>
+                    });
+                  }}
+                >
+                  <option value="">Выберите тайтл из каталога контента…</option>
+                  {catalogPickList.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.title}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted-foreground">
+                  Данные подтягиваются из карточки в разделе «Контент» (включая
+                  правообладателя). Поля ниже можно изменить вручную перед
+                  сохранением.
+                </p>
+              </div>
+            )}
             <div className="space-y-1 sm:col-span-2">
               <Label htmlFor="distributorLine">Дистрибьютор (необязательно)</Label>
               <input
@@ -1090,6 +1152,19 @@ export function Offers() {
                 placeholder='По умолчанию: ТОО «Growix Content Group»'
               />
             </div>
+            {offerTemplateKind === "platforms_package" && (
+              <div className="space-y-1 sm:col-span-2">
+                <Label htmlFor="pkgWorkTitle">Название пакета (заголовок оффера)</Label>
+                <input
+                  id="pkgWorkTitle"
+                  className={fieldClass}
+                  value={offerForm.workTitle}
+                  onChange={(e) => setOfferForm((s) => ({ ...s, workTitle: e.target.value }))}
+                  placeholder='например: «Пакет Growix 2025»'
+                />
+              </div>
+            )}
+            {offerTemplateKind !== "platforms_package" && (<>
             <div className="space-y-1 sm:col-span-2">
               <Label htmlFor="contentTitle">Название (блок сведений)</Label>
               <input
@@ -1183,6 +1258,139 @@ export function Offers() {
                 }
               />
             </div>
+            </>)}
+            {offerTemplateKind === "platforms_package" && (
+              <div className="sm:col-span-2 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Тайтлы пакета</Label>
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90"
+                    onClick={() => setPackageTitles((prev) => [...prev, defaultPackageTitle()])}
+                  >
+                    <Plus size={13} strokeWidth={2.5} /> Добавить тайтл
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {packageTitles.map((row, idx) => (
+                    <div key={idx} className="rounded-md border border-border/50 p-3 space-y-2 relative">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-semibold text-muted-foreground">Тайтл #{idx + 1}</span>
+                        {packageTitles.length > 1 && (
+                          <button
+                            type="button"
+                            className="text-xs text-destructive hover:underline"
+                            onClick={() =>
+                              setPackageTitles((prev) => prev.filter((_, i) => i !== idx))
+                            }
+                          >
+                            Удалить
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <div className="space-y-1 sm:col-span-2">
+                          <Label>Название</Label>
+                          <input
+                            className={fieldClass}
+                            value={row.title}
+                            onChange={(e) =>
+                              setPackageTitles((prev) =>
+                                prev.map((r, i) => i === idx ? { ...r, title: e.target.value } : r)
+                              )
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Кол-во серий</Label>
+                          <input
+                            className={fieldClass}
+                            value={row.seriesCount}
+                            onChange={(e) =>
+                              setPackageTitles((prev) =>
+                                prev.map((r, i) => i === idx ? { ...r, seriesCount: e.target.value } : r)
+                              )
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Жанр</Label>
+                          <input
+                            className={fieldClass}
+                            value={row.genre}
+                            onChange={(e) =>
+                              setPackageTitles((prev) =>
+                                prev.map((r, i) => i === idx ? { ...r, genre: e.target.value } : r)
+                              )
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Хронометраж</Label>
+                          <input
+                            className={fieldClass}
+                            value={row.runtime}
+                            onChange={(e) =>
+                              setPackageTitles((prev) =>
+                                prev.map((r, i) => i === idx ? { ...r, runtime: e.target.value } : r)
+                              )
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Год производства</Label>
+                          <input
+                            className={fieldClass}
+                            value={row.productionYear}
+                            onChange={(e) =>
+                              setPackageTitles((prev) =>
+                                prev.map((r, i) => i === idx ? { ...r, productionYear: e.target.value } : r)
+                              )
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Кинотеатральный релиз</Label>
+                          <input
+                            className={fieldClass}
+                            value={row.theatricalRelease}
+                            onChange={(e) =>
+                              setPackageTitles((prev) =>
+                                prev.map((r, i) => i === idx ? { ...r, theatricalRelease: e.target.value } : r)
+                              )
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Язык</Label>
+                          <input
+                            className={fieldClass}
+                            value={row.language}
+                            onChange={(e) =>
+                              setPackageTitles((prev) =>
+                                prev.map((r, i) => i === idx ? { ...r, language: e.target.value } : r)
+                              )
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Стоимость</Label>
+                          <input
+                            className={fieldClass}
+                            value={row.price}
+                            onChange={(e) =>
+                              setPackageTitles((prev) =>
+                                prev.map((r, i) => i === idx ? { ...r, price: e.target.value } : r)
+                              )
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="space-y-1">
               <Label htmlFor="exclusivity">Формат лицензии</Label>
               <select
@@ -1313,6 +1521,7 @@ export function Offers() {
                 }
               />
             </div>
+            {offerTemplateKind === "po" && (
             <div className="space-y-1 sm:col-span-2">
               <Label htmlFor="sequelFranchiseTerms">Продолжения / франшиза</Label>
               <Textarea
@@ -1325,6 +1534,7 @@ export function Offers() {
                 }
               />
             </div>
+            )}
             <div className="space-y-1 sm:col-span-2">
               <Label htmlFor="paymentSchedule">График платежей</Label>
               <Textarea
@@ -1379,20 +1589,23 @@ export function Offers() {
               disabled={
                 offerSubmitting ||
                 !offerForm.buyerOrgId ||
-                !offerCatalogItemId ||
                 !offerForm.workTitle.trim() ||
-                !offerForm.contentTitle.trim() ||
-                !offerForm.productionYear.trim() ||
-                !offerForm.contentFormat.trim() ||
-                !offerForm.genre.trim() ||
-                !offerForm.seriesCount.trim() ||
-                !offerForm.runtime.trim() ||
-                !offerForm.theatricalRelease.trim() ||
-                !offerForm.rightsHolder.trim() ||
-                !offerForm.contentLanguage.trim() ||
                 !offerForm.rightsOpeningProcedure.trim() ||
                 !offerForm.remunerationKztNet.trim() ||
-                !offerForm.paymentSchedule.trim()
+                !offerForm.paymentSchedule.trim() ||
+                (offerTemplateKind !== "platforms_package" && (
+                  !offerCatalogItemId ||
+                  !offerForm.contentTitle.trim() ||
+                  !offerForm.productionYear.trim() ||
+                  !offerForm.contentFormat.trim() ||
+                  !offerForm.genre.trim() ||
+                  !offerForm.seriesCount.trim() ||
+                  !offerForm.runtime.trim() ||
+                  !offerForm.theatricalRelease.trim() ||
+                  !offerForm.rightsHolder.trim() ||
+                  !offerForm.contentLanguage.trim()
+                )) ||
+                (offerTemplateKind === "platforms_package" && packageTitles.length === 0)
               }
               onClick={() => void submitOffer()}
             >
