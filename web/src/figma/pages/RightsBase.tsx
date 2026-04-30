@@ -16,6 +16,17 @@ import {
   dealTerritoryLabel,
 } from "@/lib/deal-territory-presets";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/figma/components/ui/tabs";
+import { Button } from "@/figma/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/figma/components/ui/dialog";
+import { Input } from "@/figma/components/ui/input";
+import { Label } from "@/figma/components/ui/label";
 import {
   MaterialRequest,
   MaterialRequestStatus,
@@ -421,18 +432,15 @@ export function RightsBase() {
   const [activeTab, setActiveTab] = useState("titles");
   const [contactsSubTab, setContactsSubTab] = useState<"platforms" | "po">("platforms");
   const [contactSavingId, setContactSavingId] = useState<string | null>(null);
-  const [contactDrafts, setContactDrafts] = useState<
-    Record<
-      string,
-      {
-        contactContent: string;
-        contactName: string;
-        contactPhone: string;
-        contactEmail: string;
-        contactTelegram: string;
-      }
-    >
-  >({});
+  const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [contactEditOrgId, setContactEditOrgId] = useState<string>("");
+  const [contactForm, setContactForm] = useState({
+    contactContent: "",
+    contactName: "",
+    contactPhone: "",
+    contactEmail: "",
+    contactTelegram: "",
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -832,29 +840,40 @@ export function RightsBase() {
     }
   }
 
-  function getContactDraft(o: OrgRow) {
-    const m = o.metadata ?? {};
-    return (
-      contactDrafts[o.id] ?? {
-        contactContent: m.contactContent ?? "",
-        contactName: m.contactName ?? "",
-        contactPhone: m.contactPhone ?? "",
-        contactEmail: m.contactEmail ?? "",
-        contactTelegram: m.contactTelegram ?? "",
-      }
-    );
+  function openCreateContactModal() {
+    const list = contactsSubTab === "platforms" ? orgs : poOrgs;
+    const first = list[0];
+    setContactEditOrgId(first?.id ?? "");
+    setContactForm({
+      contactContent: "",
+      contactName: "",
+      contactPhone: "",
+      contactEmail: "",
+      contactTelegram: "",
+    });
+    setContactModalOpen(true);
   }
 
-  function updateContactDraft(
-    org: OrgRow,
-    key: "contactContent" | "contactName" | "contactPhone" | "contactEmail" | "contactTelegram",
-    value: string,
-  ) {
-    const base = getContactDraft(org);
-    setContactDrafts((prev) => ({
-      ...prev,
-      [org.id]: { ...base, [key]: value },
-    }));
+  function openEditContactModal(org: OrgRow) {
+    const m = org.metadata ?? {};
+    setContactEditOrgId(org.id);
+    setContactForm({
+      contactContent: m.contactContent ?? "",
+      contactName: m.contactName ?? "",
+      contactPhone: m.contactPhone ?? "",
+      contactEmail: m.contactEmail ?? "",
+      contactTelegram: m.contactTelegram ?? "",
+    });
+    setContactModalOpen(true);
+  }
+
+  async function submitContactModal() {
+    if (!contactEditOrgId) {
+      setErr("Выберите компанию");
+      return;
+    }
+    await saveContactCard(contactEditOrgId, contactForm);
+    setContactModalOpen(false);
   }
 
   if (loading) {
@@ -1596,29 +1615,34 @@ export function RightsBase() {
 
         <TabsContent value="contacts-base" className="mt-0">
           <div className="space-y-4">
-            <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/30">
-              <button
-                type="button"
-                className={`px-3 py-1.5 text-xs font-semibold rounded ${
-                  contactsSubTab === "platforms"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted"
-                }`}
-                onClick={() => setContactsSubTab("platforms")}
-              >
-                Контакты Площадок
-              </button>
-              <button
-                type="button"
-                className={`px-3 py-1.5 text-xs font-semibold rounded ${
-                  contactsSubTab === "po"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted"
-                }`}
-                onClick={() => setContactsSubTab("po")}
-              >
-                Контакты ПО
-              </button>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/30">
+                <button
+                  type="button"
+                  className={`px-3 py-1.5 text-xs font-semibold rounded ${
+                    contactsSubTab === "platforms"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted"
+                  }`}
+                  onClick={() => setContactsSubTab("platforms")}
+                >
+                  Контакты Площадок
+                </button>
+                <button
+                  type="button"
+                  className={`px-3 py-1.5 text-xs font-semibold rounded ${
+                    contactsSubTab === "po"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted"
+                  }`}
+                  onClick={() => setContactsSubTab("po")}
+                >
+                  Контакты ПО
+                </button>
+              </div>
+              <Button type="button" onClick={openCreateContactModal}>
+                Добавить контакт
+              </Button>
             </div>
             <TableShell>
               <thead>
@@ -1629,61 +1653,30 @@ export function RightsBase() {
                   <Th>Телефон</Th>
                   <Th>Email</Th>
                   <Th>Telegram</Th>
-                  <Th className="text-right">Действие</Th>
+                  <Th className="text-right">Действия</Th>
                 </tr>
               </thead>
               <tbody>
                 {(contactsSubTab === "platforms" ? orgs : poOrgs).map((o) => {
-                  const draft = getContactDraft(o);
+                  const m = o.metadata ?? {};
                   return (
                     <tr key={o.id}>
                       <Td>{o.legalName}</Td>
-                      <Td>
-                        <input
-                          className="w-48 rounded border border-border bg-input-background px-2 py-1 text-xs"
-                          value={draft.contactContent}
-                          onChange={(e) => updateContactDraft(o, "contactContent", e.target.value)}
-                        />
-                      </Td>
-                      <Td>
-                        <input
-                          className="w-48 rounded border border-border bg-input-background px-2 py-1 text-xs"
-                          value={draft.contactName}
-                          onChange={(e) => updateContactDraft(o, "contactName", e.target.value)}
-                        />
-                      </Td>
-                      <Td>
-                        <input
-                          className="w-40 rounded border border-border bg-input-background px-2 py-1 text-xs"
-                          value={draft.contactPhone}
-                          onChange={(e) => updateContactDraft(o, "contactPhone", e.target.value)}
-                        />
-                      </Td>
-                      <Td>
-                        <input
-                          className="w-48 rounded border border-border bg-input-background px-2 py-1 text-xs"
-                          value={draft.contactEmail}
-                          onChange={(e) => updateContactDraft(o, "contactEmail", e.target.value)}
-                        />
-                      </Td>
-                      <Td>
-                        <input
-                          className="w-40 rounded border border-border bg-input-background px-2 py-1 text-xs"
-                          value={draft.contactTelegram}
-                          onChange={(e) =>
-                            updateContactDraft(o, "contactTelegram", e.target.value)
-                          }
-                        />
-                      </Td>
+                      <Td>{m.contactContent?.trim() || "—"}</Td>
+                      <Td>{m.contactName?.trim() || "—"}</Td>
+                      <Td>{m.contactPhone?.trim() || "—"}</Td>
+                      <Td>{m.contactEmail?.trim() || "—"}</Td>
+                      <Td>{m.contactTelegram?.trim() || "—"}</Td>
                       <Td className="text-right">
-                        <button
+                        <Button
                           type="button"
-                          onClick={() => void saveContactCard(o.id, draft)}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openEditContactModal(o)}
                           disabled={contactSavingId === o.id}
-                          className="rounded-md border border-border px-2 py-1 text-xs font-medium hover:bg-muted disabled:opacity-60"
                         >
-                          {contactSavingId === o.id ? "Сохранение…" : "Сохранить"}
-                        </button>
+                          {contactSavingId === o.id ? "Сохранение…" : "Изменить"}
+                        </Button>
                       </Td>
                     </tr>
                   );
@@ -1692,6 +1685,96 @@ export function RightsBase() {
             </TableShell>
           </div>
         </TabsContent>
+        <Dialog open={contactModalOpen} onOpenChange={setContactModalOpen}>
+          <DialogContent className="sm:max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Добавить контакт</DialogTitle>
+              <DialogDescription>
+                Заполните карточку контакта и сохраните запись в таблицу.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="contactCompany">Компания</Label>
+                <select
+                  id="contactCompany"
+                  className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={contactEditOrgId}
+                  onChange={(e) => setContactEditOrgId(e.target.value)}
+                >
+                  <option value="">Выберите компанию…</option>
+                  {(contactsSubTab === "platforms" ? orgs : poOrgs).map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.legalName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="contactContent">Контент</Label>
+                <Input
+                  id="contactContent"
+                  value={contactForm.contactContent}
+                  onChange={(e) =>
+                    setContactForm((prev) => ({ ...prev, contactContent: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="contactName">ФИО контактного лица</Label>
+                <Input
+                  id="contactName"
+                  value={contactForm.contactName}
+                  onChange={(e) =>
+                    setContactForm((prev) => ({ ...prev, contactName: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="contactPhone">Телефон</Label>
+                <Input
+                  id="contactPhone"
+                  value={contactForm.contactPhone}
+                  onChange={(e) =>
+                    setContactForm((prev) => ({ ...prev, contactPhone: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="contactEmail">Email</Label>
+                <Input
+                  id="contactEmail"
+                  value={contactForm.contactEmail}
+                  onChange={(e) =>
+                    setContactForm((prev) => ({ ...prev, contactEmail: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="contactTelegram">Telegram</Label>
+                <Input
+                  id="contactTelegram"
+                  value={contactForm.contactTelegram}
+                  onChange={(e) =>
+                    setContactForm((prev) => ({ ...prev, contactTelegram: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setContactModalOpen(false)}>
+                Отмена
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void submitContactModal()}
+                disabled={!contactEditOrgId || contactSavingId !== null}
+              >
+                {contactSavingId ? "Сохранение…" : "Сохранить"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </Tabs>
     </div>
   );
