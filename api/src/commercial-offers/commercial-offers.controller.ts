@@ -18,6 +18,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { assertAdminDeleteUser } from '../auth/admin-delete';
 import type { AuthUserView } from '../auth/auth-user.types';
+import { Roles } from '../auth/roles.decorator';
 import { documentMimeFilter } from '../common/multer-mime-filter';
 import { CreateManualCommercialOfferDto } from './dto/create-manual-commercial-offer.dto';
 import { CreateCommercialOfferDto } from './dto/create-commercial-offer.dto';
@@ -32,6 +33,7 @@ function manualOfferUploadOptions() {
   };
 }
 
+@Roles('admin', 'manager')
 @Controller('commercial-offers')
 export class CommercialOffersController {
   constructor(

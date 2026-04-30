@@ -1,9 +1,14 @@
 import { Controller, Get } from '@nestjs/common';
+import { Roles } from '../auth/roles.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 
 /**
  * Диагностика без Prisma и с проверкой БД — помогает отличить «API не тот» от «БД мёртва».
+ *
+ * Маршруты `/debug/*` объявлены как public-route ТОЛЬКО на dev/staging
+ * (см. JwtAuthGuard.isPublicRoute). На проде потребуется JWT и роль admin.
  */
+@Roles('admin')
 @Controller('debug')
 export class DebugController {
   constructor(private readonly prisma: PrismaService) {}

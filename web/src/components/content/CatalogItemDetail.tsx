@@ -52,6 +52,20 @@ type EditableLicenseTerm = {
   sublicensingAllowed: boolean;
 };
 
+function monthsToYearsString(months: number | null): string {
+  if (months == null || !Number.isFinite(months) || months <= 0) return "";
+  const years = months / 12;
+  return Number.isInteger(years) ? String(years) : years.toFixed(1);
+}
+
+function yearsStringToMonths(value: string): number | undefined {
+  const normalized = value.trim().replace(",", ".");
+  if (!normalized) return undefined;
+  const years = Number.parseFloat(normalized);
+  if (!Number.isFinite(years) || years <= 0) return Number.NaN;
+  return Math.round(years * 12);
+}
+
 type CatalogRow = {
   id: string;
   title: string;
@@ -167,10 +181,7 @@ export function CatalogItemDetail(props: { catalogItemId: string }) {
         exclusivity:
           t.exclusivity === "exclusive" ? "exclusive" : "non_exclusive",
         platforms: [...(t.platforms ?? [])],
-        durationMonths:
-          t.durationMonths != null && Number.isFinite(t.durationMonths)
-            ? String(t.durationMonths)
-            : "",
+        durationMonths: monthsToYearsString(t.durationMonths),
         startAt: t.startAt ? t.startAt.slice(0, 10) : "",
         endAt: t.endAt ? t.endAt.slice(0, 10) : "",
         languageRights: (t.languageRights ?? []).join(", "),
@@ -295,9 +306,7 @@ export function CatalogItemDetail(props: { catalogItemId: string }) {
           throw new Error(`Лицензионная строка ${idx + 1}: укажите языки`);
         }
         const durationRaw = row.durationMonths.trim();
-        const durationMonths = durationRaw
-          ? Number.parseInt(durationRaw, 10)
-          : undefined;
+        const durationMonths = yearsStringToMonths(durationRaw);
         if (
           durationRaw &&
           (typeof durationMonths !== "number" ||
@@ -305,7 +314,7 @@ export function CatalogItemDetail(props: { catalogItemId: string }) {
             durationMonths <= 0)
         ) {
           throw new Error(
-            `Лицензионная строка ${idx + 1}: срок в месяцах должен быть > 0`,
+            `Лицензионная строка ${idx + 1}: срок в годах должен быть > 0`,
           );
         }
         return {
@@ -725,14 +734,14 @@ export function CatalogItemDetail(props: { catalogItemId: string }) {
                   </select>
                 </div>
                 <div>
-                  <Label>Срок (месяцы)</Label>
+                  <Label>Срок (годы)</Label>
                   <Input
                     className="mt-1"
-                    inputMode="numeric"
+                    inputMode="decimal"
                     value={t.durationMonths}
                     onChange={(e) =>
                       setLicenseTermAt(idx, {
-                        durationMonths: e.target.value.replace(/\D/g, ""),
+                        durationMonths: e.target.value.replace(/[^0-9.,]/g, ""),
                       })
                     }
                   />

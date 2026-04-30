@@ -192,6 +192,10 @@ model User {
   lastLoginAt        DateTime?
   /// IP последнего входа (для аудита)
   lastLoginIp        String?
+  /// Версия токена. Инкрементируется при logout-all и принудительном
+  /// разлогинивании (смена пароля, бан). JWT содержит поле `tv` —
+  /// при несовпадении валидация отвергается.
+  tokenVersion       Int       @default(0)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -583,6 +587,136 @@ model TaskComment {
   createdAt DateTime @default(now())
 
   @@index([taskId, createdAt])
+}
+
+/// Тип дохода для классификации налога у источника.
+/// На старте поддерживаем только `royalty` (роялти/лицензионные платежи) —
+/// это основной кейс ContentFlow. По мере появления других типов выплат
+/// (services, dividends) расширяем enum.
+enum WithholdingIncomeType {
+  royalty
+  service
+  dividend
+}
+
+/// Справочник правил налогообложения у источника. Заполняется юристом
+/// и привязывает пару «страна-плательщик / страна-получатель / тип дохода»
+/// к ставке + флагу «нужен ли сертификат резидентства» для применения
+/// льготной ставки по ДВН.
+///
+/// При расчёте Payout движок (`TaxEngine.computeWithholding`) выбирает
+/// первое подходящее правило в таком порядке:
+///   1) точное совпадение payerCountry + recipientCountry + incomeType;
+///   2) wildcard payerCountry='*' + recipientCountry + incomeType;
+///   3) wildcard recipientCountry='*' + payerCountry + incomeType;
+///   4) полный fallback (payerCountry='*', recipientCountry='*').
+model TaxRule {
+  id                       String                @id @default(uuid())
+  /// ISO-код страны плательщика (например, 'KZ', 'RU') либо '*' (любая).
+  payerCountry             String
+  /// ISO-код страны получателя или '*'.
+  recipientCountry         String
+  incomeType               WithholdingIncomeType
+  /// Базовая ставка БЕЗ применения ДВН (в процентах: 20 = 20%).
+  defaultRateWithoutTreaty Decimal               @db.Decimal(9, 4)
+  /// Льготная ставка по ДВН (если применима).
+  treatyRateIfApplicable   Decimal?              @db.Decimal(9, 4)
+  /// Требуется ли сертификат резидентства для применения treatyRate.
+  requiresDtCertificate    Boolean               @default(true)
+  /// Свободный комментарий юриста (источник нормы, ссылка на статью).
+  note                     String?
+  /// Версия справочника — инкрементируется при изменении ставки. В Payout
+  /// сохраняем `taxProfileSnapshotId`, чтобы знать, по какой версии считали.
+  version                  Int                   @default(1)
+  effectiveFrom            DateTime              @default(now())
+  effectiveTo              DateTime?
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
+
+  @@index([payerCountry, recipientCountry, incomeType])
+  @@index([effectiveFrom, effectiveTo])
+}
+
+/// Кеш курсов валют, которые мы фиксируем в контрактах и используем для
+/// расчётов выплат. Источник — ЦБ РФ, НБ РК или ECB (выбирается через env).
+/// Кешируем на сутки, чтобы не дёргать внешний API на каждой выплате.
+model FxRateCache {
+  id           String   @id @default(uuid())
+  /// ISO-код валюты-базы (та, в которой котируется курс): «1 USD = X RUB» — base=USD.
+  baseCurrency String   @db.VarChar(3)
+  /// ISO-код валюты-котировки: в нашем случае обычно RUB или KZT.
+  quoteCurrency String  @db.VarChar(3)
+  /// Курс: 1 baseCurrency = `rate` quoteCurrency.
+  rate         Decimal  @db.Decimal(18, 8)
+  /// Источник — 'CBR', 'NBK', 'ECB' и т.п.
+  source       String
+  fetchedAt    DateTime @default(now())
+
+  @@unique([baseCurrency, quoteCurrency, source, fetchedAt])
+  @@index([baseCurrency, quoteCurrency, source])
+}
+
+/// Аудит критичных действий менеджеров и админов в CRM.
+/// Дополняет `HolderAuditLog` (там — действия правообладателей в кабинете).
+/// Здесь фиксируем: создание/патч контрактов, изменение visibility, удаление,
+/// выпуск офферов, выплаты — всё, что может потребоваться для юр-разборов
+/// и внутреннего audit trail.
+model CrmAuditLog {
+  id           String   @id @default(uuid())
+  /// Кто совершил действие (User.id, обычно admin/manager).
+  userId       String
+  /// Машиночитаемое имя действия:
+  /// `contract.create`, `contract.patch`, `contract.archive`,
+  /// `deal.create`, `deal.patch`, `deal.archive`,
+  /// `offer.create`, `offer.archive`,
+  /// `org.holder_visibility_set`, `org.holder_user_visibility_set`,
+  /// `payout.create`, `payment.update`, `material_request.review`, ...
+  action       String
+  /// Какая сущность затронута (Contract, Deal, Organization, Payout, ...).
+  entityType   String?
+  entityId     String?
+  /// Опциональная организация-контекст (если действие затрагивает контрагента).
+  organizationId String?
+  ip           String?
+  userAgent    String?
+  /// Дополнительные машинные данные (старое/новое значение, причина и т.п.).
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+  @@index([organizationId, createdAt])
+  @@index([action, createdAt])
+}
+
+/// Учёт отправок писем — для диагностики, retry-цикла и UI «доставлено/нет».
+/// Ловим SMTP-ошибки в БД, чтобы не терять их в логах ротации.
+enum EmailDeliveryStatus {
+  pending
+  sent
+  failed
+  skipped
+}
+
+model EmailDelivery {
+  id          String              @id @default(uuid())
+  to          String
+  category    String
+  subject     String
+  entityId    String?
+  /// Текущий статус: pending → sent / failed / skipped (opted-out).
+  status      EmailDeliveryStatus @default(pending)
+  /// Сколько попыток отправки уже было.
+  attempts    Int                 @default(0)
+  /// Последняя ошибка SMTP, если status=failed.
+  lastError   String?
+  sentAt      DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([to, createdAt])
+  @@index([category, status])
+  @@index([entityId])
 }
 
 /// Коммерческое предложение (оффер) — PDF в uploads по storageKey

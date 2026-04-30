@@ -9,8 +9,13 @@ import {
 import { UserRole } from '@prisma/client';
 import type { Request } from 'express';
 import type { AuthUserView } from '../auth/auth-user.types';
+import { Roles } from '../auth/roles.decorator';
 import { PortalService } from './portal.service';
 
+/// Эндпоинт читают и менеджеры/админы (для /portal с указанием orgId),
+/// и сами правообладатели (для своего summary). Проверка orgId-скоупа
+/// делается внутри метода.
+@Roles('admin', 'manager', 'rights_owner')
 @Controller('portal/rights-owner')
 export class PortalController {
   constructor(private readonly portalService: PortalService) {}

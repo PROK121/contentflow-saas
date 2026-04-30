@@ -2,7 +2,9 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import {
   ContractStatus,
@@ -13,9 +15,11 @@ import {
 } from '@prisma/client';
 import { createHash } from 'crypto';
 import { createReadStream, createWriteStream, existsSync } from 'fs';
-import { mkdir, writeFile } from 'fs/promises';
+import { mkdir, readFile, writeFile } from 'fs/promises';
 import * as path from 'path';
 import PDFDocument = require('pdfkit');
+import { roundDecimal, sumDecimal } from '../common/money';
+import { HetznerStorageService } from '../hetzner-storage/hetzner-storage.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { Decimal } from '@prisma/client/runtime/library';
@@ -29,7 +33,11 @@ const DEFAULT_TEMPLATE_ID = 'default-template';
 
 @Injectable()
 export class ContractsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(ContractsService.name);
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly hetzner: HetznerStorageService,
+  ) {}
 
   findAll(filters?: {
     q?: string;
@@ -107,7 +115,15 @@ export class ContractsService {
   }
 
   /**
-   * Отдаёт файл версии; если на диске нет — создаёт PDF-заглушку (dev/MVP).
+   * Отдаёт файл версии. Поведение по средам:
+   *
+   *  • prod: если файла нет на диске — 503. Подменять реальный документ
+   *    плейсхолдером в проде нельзя — это юр-значимый PDF, который нельзя
+   *    подделывать. Если хеш на диске не совпадает с `ContractVersion.sha256`,
+   *    тоже 503 + critical-лог: вероятно, поломка целостности.
+   *
+   *  • dev/staging: если файла нет — генерируем PDF-заглушку, чтобы не
+   *    блокировать UI без реального хранилища.
    */
   async getVersionFileForDownload(contractId: string, versionNum: number) {
     if (!Number.isInteger(versionNum) || versionNum < 1) {
@@ -126,14 +142,87 @@ export class ContractsService {
     const abs = path.join(contractsUploadRoot(), ver.storageKey);
     const dir = path.dirname(abs);
     await mkdir(dir, { recursive: true });
+
+    const isProd = process.env.NODE_ENV === 'production';
+
     if (!existsSync(abs)) {
-      await this.writeContractPlaceholderPdf(abs, contract.number, versionNum);
+      // Сначала пробуем стянуть из Hetzner Storage Box: persistent disk
+      // Render имеет всего 1 ГБ и не реплицируется. Для боевой устойчивости
+      // версии контрактов отзеркалены в Hetzner. См. HetznerStorageService.
+      const restored = await this.tryRestoreFromHetzner(ver.storageKey, abs);
+      if (!restored) {
+        if (isProd) {
+          this.logger.error(
+            `Contract version file missing both locally and on Hetzner: contract=${contractId} v=${versionNum} storageKey=${ver.storageKey}`,
+          );
+          throw new ServiceUnavailableException(
+            'Документ временно недоступен. Обратитесь к менеджеру.',
+          );
+        }
+        // dev/staging: плейсхолдер для удобства разработки
+        await this.writeContractPlaceholderPdf(abs, contract.number, versionNum);
+      }
+    }
+    if (existsSync(abs) && ver.sha256) {
+      // Файл есть — проверяем целостность по сохранённому sha256.
+      // На больших файлах это I/O-нагрузка, но для контрактов (PDF, обычно
+      // <10 МБ) приемлемо. На потоковую отдачу это не влияет — мы читаем
+      // файл целиком до открытия stream'а.
+      const buf = await readFile(abs);
+      const actualSha = createHash('sha256').update(buf).digest('hex');
+      if (actualSha !== ver.sha256) {
+        this.logger.error(
+          `Contract version sha256 mismatch: contract=${contractId} v=${versionNum} expected=${ver.sha256} actual=${actualSha}`,
+        );
+        if (isProd) {
+          throw new ServiceUnavailableException(
+            'Целостность документа нарушена. Скачивание заблокировано до проверки.',
+          );
+        }
+        // В dev оставляем warning, не блокируем — но в логи идёт ошибка.
+      }
     }
 
     const stream = createReadStream(abs);
     const safeNum = contract.number.replace(/[/\\?%*:|"<>]/g, '_').slice(0, 80);
     const fileName = `${safeNum}-v${versionNum}.pdf`;
     return { stream, fileName };
+  }
+
+  /// Пытается восстановить файл версии контракта из Hetzner Storage Box
+  /// (если там лежит зеркало). Возвращает `true`, если файл успешно записан
+  /// на локальный диск. Hetzner кладём в `/contentflow/contracts/<storageKey>`
+  /// (HETZNER_CONTRACTS_DIR можно переопределить через env).
+  ///
+  /// Best-effort: ошибки сети/SFTP логируются, но не пробрасываются — если
+  /// зеркала нет, вызывающий код решит, делать плейсхолдер или 503.
+  private async tryRestoreFromHetzner(
+    storageKey: string,
+    localAbsPath: string,
+  ): Promise<boolean> {
+    try {
+      const remoteRoot = (
+        process.env.HETZNER_CONTRACTS_DIR ?? '/contentflow/contracts'
+      ).replace(/\/+$/, '');
+      const remotePath = `${remoteRoot}/${storageKey}`;
+      // exists() сделает один SFTP-stat; если нет — выходим без чтения.
+      const exists = await this.hetzner.exists(remotePath).catch(() => false);
+      if (!exists) return false;
+      const buf = await this.hetzner.download(remotePath);
+      await mkdir(path.dirname(localAbsPath), { recursive: true });
+      await writeFile(localAbsPath, buf);
+      this.logger.log(
+        `Contract version restored from Hetzner: ${storageKey} -> ${localAbsPath}`,
+      );
+      return true;
+    } catch (e) {
+      this.logger.warn(
+        `Hetzner restore failed for ${storageKey}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+      return false;
+    }
   }
 
   private writeContractPlaceholderPdf(
@@ -228,14 +317,19 @@ export class ContractsService {
     }
 
     const templateId = dto.templateId ?? DEFAULT_TEMPLATE_ID;
-    const amountTotal = deals.reduce((sum, d) => {
-      const snap = (d.commercialSnapshot as Record<string, unknown> | null) ?? {};
-      const ev = snap.expectedValue;
-      const raw =
-        typeof ev === 'string' || typeof ev === 'number' ? String(ev) : '0';
-      const parsed = Number.parseFloat(raw.replace(/\s/g, '').replace(',', '.'));
-      return sum + (Number.isFinite(parsed) ? parsed : 0);
-    }, 0);
+    // Деньги через Decimal-арифметику (см. common/money.ts) — иначе суммы
+    // в больших значениях/копейках теряют precision и расходятся с
+    // бухгалтерией. До этой правки тут был `parseFloat` + сложение Number-ов.
+    const amountTotalDecimal = roundDecimal(
+      sumDecimal(
+        deals.map((d) => {
+          const snap =
+            (d.commercialSnapshot as Record<string, unknown> | null) ?? {};
+          const ev = snap.expectedValue;
+          return typeof ev === 'string' || typeof ev === 'number' ? ev : '0';
+        }),
+      ),
+    );
 
     const termEnd = new Date();
     termEnd.setFullYear(termEnd.getFullYear() + 1);
@@ -266,7 +360,7 @@ export class ContractsService {
     });
 
     const number = `CF-${Date.now()}`;
-    const amountKztLabel = `${new Decimal(String(amountTotal || 0)).toFixed(2)} KZT`;
+    const amountKztLabel = `${amountTotalDecimal.toFixed(2)} KZT`;
     const allCatalogTitles = deals
       .flatMap((d) => d.catalogItems.map((l) => l.catalogItem?.title ?? ''))
       .filter(Boolean);
@@ -303,7 +397,7 @@ export class ContractsService {
         status: ContractStatus.draft,
         territory: 'MULTI',
         termEndAt: termEnd,
-        amount: new Decimal(String(amountTotal || 0)),
+        amount: amountTotalDecimal,
         currency: primaryDeal.currency,
         rightsPayload: {
           ...(rightsPayload as object),
@@ -532,12 +626,18 @@ export class ContractsService {
         : null;
     const contractAmtStr = new Decimal(c.amount).toFixed(2);
     if (evRaw !== null) {
-      const a = parseFloat(String(evRaw).replace(/\s/g, '').replace(',', '.'));
-      const b = parseFloat(contractAmtStr);
-      if (!Number.isNaN(a) && !Number.isNaN(b) && Math.abs(a - b) > 0.01) {
-        differences.push(
-          `Сумма: в сделке ожидается ${evRaw} ${deal.currency}, в контракте ${contractAmtStr} ${c.currency}`,
-        );
+      // Сравнение через Decimal — никаких parseFloat для денег.
+      // Расхождение > 1 копейки считаем значимым.
+      try {
+        const a = roundDecimal(sumDecimal([evRaw]));
+        const b = new Decimal(contractAmtStr);
+        if (a.minus(b).abs().gt(new Decimal('0.01'))) {
+          differences.push(
+            `Сумма: в сделке ожидается ${evRaw} ${deal.currency}, в контракте ${contractAmtStr} ${c.currency}`,
+          );
+        }
+      } catch {
+        // Невалидное значение в сделке — оставляем без сравнения.
       }
     }
     if (deal.currency !== c.currency) {

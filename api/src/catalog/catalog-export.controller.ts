@@ -6,9 +6,13 @@ import {
   Query,
   StreamableFile,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { Roles } from '../auth/roles.decorator';
 import { CatalogExportService } from './catalog-export.service';
 import { ExportBuyerCatalogDto } from './dto/export-buyer-catalog.dto';
 
+@Roles('admin', 'manager')
+@Throttle({ heavy: { limit: 30, ttl: 60_000 } })
 @Controller('catalog')
 export class CatalogExportController {
   constructor(private readonly catalogExport: CatalogExportService) {}

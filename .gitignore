@@ -7,3 +7,19 @@
 
 # Логи на корневом уровне монорепо
 *.log
+
+# Все .env по всему монорепо (api, web, прочее) — кроме .env.example.
+# Секреты задаются через Render Environment / 1Password / Doppler, не в репо.
+**/.env
+**/.env.*
+!**/.env.example
+
+# node_modules на любом уровне (api, web, packages)
+**/node_modules/
+
+# Build-артефакты
+**/dist/
+**/.next/
+
+# Локальные uploads (для dev) и материалы
+**/uploads/

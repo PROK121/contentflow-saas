@@ -44,14 +44,27 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     });
   }
 
-  async validate(payload: { sub?: string }): Promise<AuthUserView> {
+  async validate(payload: { sub?: string; tv?: number }): Promise<AuthUserView> {
     const id = payload.sub;
     if (!id) throw new UnauthorizedException();
     const user = await this.prisma.user.findUnique({
       where: { id },
-      select: safeUserSelect,
+      select: { ...safeUserSelect, tokenVersion: true },
     });
     if (!user) throw new UnauthorizedException();
-    return user;
+
+    // Если в JWT нет `tv` или он ниже актуального — токен принудительно
+    // отозван (logout-all, смена пароля, бан). Старые JWT (выпущенные до
+    // ввода tokenVersion) тоже не проходят и пользователю придётся войти
+    // заново — это разовая операция при выкатке.
+    const actualTv = user.tokenVersion ?? 0;
+    if (typeof payload.tv !== 'number' || payload.tv !== actualTv) {
+      throw new UnauthorizedException(
+        'Токен отозван — требуется повторный вход',
+      );
+    }
+
+    const { tokenVersion: _tv, ...safe } = user;
+    return safe;
   }
 }

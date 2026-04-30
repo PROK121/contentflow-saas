@@ -2,8 +2,12 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
+import { RolesGuard } from './auth/roles.guard';
+import { FxModule } from './fx/fx.module';
+import { TaxModule } from './tax/tax.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { CommercialOffersModule } from './commercial-offers/commercial-offers.module';
 import { ContractsModule } from './contracts/contracts.module';
@@ -27,21 +31,31 @@ import { UsersModule } from './users/users.module';
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRoot([
       {
-        // Лимит по умолчанию — 1200 запросов в минуту на один IP. Запас нужен,
-        // потому что health-check Render и несколько менеджеров одновременно
-        // суммарно дают много запросов. При превышении лимита возвращается 429,
-        // и Render ошибочно помечает инстанс «нездоровым».
+        // Лимит по умолчанию — 600 запросов в минуту на IP. Этого хватает
+        // менеджеру с активной работой (поиск, открытие нескольких сделок),
+        // но защищает от наивного DDoS. Health-check помечен `@SkipThrottle`,
+        // отдельный лимит для login (см. ниже).
         name: 'default',
         ttl: 60_000,
-        limit: 1200,
+        limit: 600,
       },
       {
-        // Строгий лимит для login — 10 попыток в минуту с одного IP
+        // Строгий лимит для login — 10 попыток в минуту с одного IP.
         name: 'login',
         ttl: 60_000,
         limit: 10,
       },
+      {
+        // Тяжёлые операции: генерация PDF контракта/оффера, экспорт каталога,
+        // скачивание мастеров — 30/мин. Используется через `@Throttle({ heavy: ... })`.
+        name: 'heavy',
+        ttl: 60_000,
+        limit: 30,
+      },
     ]),
+    AuditModule,
+    FxModule,
+    TaxModule,
     EmailModule,
     AuthModule,
     PrismaModule,
@@ -69,6 +83,12 @@ import { UsersModule } from './users/users.module';
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    {
+      // RolesGuard идёт после JwtAuthGuard — на этом этапе мы уже знаем
+      // `req.user`. Гард default-deny: без явного `@Roles(...)` отказ.
+      provide: APP_GUARD,
+      useClass: RolesGuard,
     },
   ],
 })

@@ -19,6 +19,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import {
   IsBoolean,
   IsIn,
@@ -29,6 +30,7 @@ import {
 } from 'class-validator';
 import type { Request } from 'express';
 import type { AuthUserView } from '../auth/auth-user.types';
+import { Roles } from '../auth/roles.decorator';
 import { ContractsService } from '../contracts/contracts.service';
 import { EmailService } from '../email/email.service';
 import { MATERIAL_SLOTS } from '../material-requests/material-slots';
@@ -139,14 +141,17 @@ function escapeForHtmlInline(s: string): string {
 }
 
 /// Multer-настройка для загрузок материалов из кабинета правообладателя.
-/// Лимит 100 ГБ — для мастер-копий и трейлеров. Конкретный слот
-/// проверяется в сервисе.
-const MATERIAL_UPLOAD_LIMIT = 100 * 1024 * 1024 * 1024;
+/// Лимит 4 ГБ — выше через синхронный multipart нет смысла (memory pressure,
+/// HTTP-таймауты, риск disk-OOM). Крупные мастер-копии в перспективе
+/// загружаются через pre-signed S3-URL минуя API. Конкретный слот
+/// (с собственным maxSizeBytes) проверяется в `MaterialRequestsService.addUpload`.
+const MATERIAL_UPLOAD_LIMIT = 4 * 1024 * 1024 * 1024;
 
 /// Кабинет правообладателя.
 /// Все endpoints под /v1/holder/* — закрыты HolderGuard (роль rights_owner +
 /// привязка к организации). Любая выборка идёт через HolderScopeService,
 /// который автоматически фильтрует по organizationId.
+@Roles('rights_owner')
 @UseGuards(HolderGuard)
 @Controller('holder')
 export class HolderController {
@@ -367,7 +372,9 @@ export class HolderController {
 
   /// Скачивание контракта правообладателем. Берём latest version, проверяем
   /// принадлежность организации, пишем в audit. Если версия указана явно —
-  /// можем отдать её.
+  /// можем отдать её. Тяжёлая операция (sha256-проверка + I/O) — отдельный
+  /// лимит 30/мин/пользователь.
+  @Throttle({ heavy: { limit: 30, ttl: 60_000 } })
   @Get('contracts/:id/download')
   async downloadContract(
     @Param('id') id: string,
@@ -637,10 +644,18 @@ export class HolderController {
   }
 
   /// Подбираем менеджера для назначения задачи от правообладателя.
-  /// 1. Тот, кто последний раз приглашал кого-то в эту организацию
-  ///    (`HolderInvite.invitedByUserId`).
-  /// 2. Любой active manager/admin как fallback.
+  ///
+  /// Приоритет:
+  ///   1. Последний инвайтер в эту организацию — но ТОЛЬКО если он всё ещё
+  ///      активный manager/admin (роль не понижена и пользователь не «удалён»
+  ///      через смену email на дефолт). Уволенному менеджеру задачи назначать
+  ///      нельзя — он не сможет на них реагировать.
+  ///   2. Менеджер с наименьшим количеством открытых задач — справедливое
+  ///      распределение.
+  ///   3. Любой admin как fallback (на случай, если в системе вообще нет
+  ///      manager-ов в данный момент).
   private async pickAssigneeForOrg(orgId: string) {
+    // 1) Последний инвайтер этой организации — только если активный manager/admin.
     const lastInvite = await this.prisma.holderInvite.findFirst({
       where: { organizationId: orgId },
       orderBy: { createdAt: 'desc' },
@@ -648,14 +663,52 @@ export class HolderController {
         invitedBy: { select: { id: true, email: true, role: true } },
       },
     });
-    if (lastInvite?.invitedBy) {
-      return lastInvite.invitedBy;
+    if (
+      lastInvite?.invitedBy &&
+      (lastInvite.invitedBy.role === 'manager' ||
+        lastInvite.invitedBy.role === 'admin')
+    ) {
+      // Перепроверяем актуальное состояние — роль могли понизить.
+      const stillActive = await this.prisma.user.findFirst({
+        where: {
+          id: lastInvite.invitedBy.id,
+          role: { in: ['admin', 'manager'] },
+        },
+        select: { id: true, email: true, role: true },
+      });
+      if (stillActive) return stillActive;
     }
-    return this.prisma.user.findFirst({
+
+    // 2) Менеджер с наименьшей нагрузкой по открытым задачам.
+    //    `groupBy` не подходит для left-join: делаем агрегат вручную через два запроса.
+    const candidates = await this.prisma.user.findMany({
       where: { role: { in: ['admin', 'manager'] } },
-      orderBy: { createdAt: 'asc' },
       select: { id: true, email: true, role: true },
+      orderBy: { createdAt: 'asc' },
     });
+    if (candidates.length === 0) return null;
+
+    const taskCounts = await this.prisma.task.groupBy({
+      by: ['assigneeId'],
+      where: {
+        archived: false,
+        status: { not: 'done' },
+        assigneeId: { in: candidates.map((c) => c.id) },
+      },
+      _count: { _all: true },
+    });
+    const countByUser = new Map(
+      taskCounts.map((row) => [row.assigneeId, row._count._all]),
+    );
+    const ranked = [...candidates].sort((a, b) => {
+      const ca = countByUser.get(a.id) ?? 0;
+      const cb = countByUser.get(b.id) ?? 0;
+      if (ca !== cb) return ca - cb;
+      // Менеджеры приоритетнее админов (admin — fallback).
+      if (a.role !== b.role) return a.role === 'manager' ? -1 : 1;
+      return 0;
+    });
+    return ranked[0] ?? null;
   }
 
   // -------------------------------------------------------------------------
@@ -761,6 +814,7 @@ export class HolderController {
 
   /// Скачивание ранее загруженного файла самим правообладателем
   /// (проверка через requestId + orgId).
+  @Throttle({ heavy: { limit: 30, ttl: 60_000 } })
   @Get('material-requests/:id/uploads/:uploadId/download')
   async downloadMaterial(
     @Param('id') id: string,

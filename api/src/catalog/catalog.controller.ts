@@ -15,6 +15,7 @@ import {
 import type { Request } from 'express';
 import { assertAdminDeleteUser } from '../auth/admin-delete';
 import type { AuthUserView } from '../auth/auth-user.types';
+import { Roles } from '../auth/roles.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { randomUUID } from 'crypto';
 import * as fs from 'fs';
@@ -50,6 +51,7 @@ function catalogPosterUploadOptions() {
   };
 }
 
+@Roles('admin', 'manager')
 @Controller('catalog/items')
 export class CatalogController {
   constructor(private readonly catalogService: CatalogService) {}

@@ -6,8 +6,13 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
+import { AllowAnyAuthenticatedRole } from '../auth/roles.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 
+/// Health-маршруты объявлены как public в `JwtAuthGuard.isPublicRoute`,
+/// поэтому JWT/RolesGuard сюда не доходят. Decorator всё равно стоит —
+/// на случай если public-список изменится.
+@AllowAnyAuthenticatedRole()
 @SkipThrottle({ default: true, login: true })
 @Controller('health')
 export class HealthController {

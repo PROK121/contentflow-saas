@@ -13,11 +13,13 @@ import type { Request } from 'express';
 import { TaskPriority, TaskStatus, TaskType } from '@prisma/client';
 import { assertAdminDeleteUser } from '../auth/admin-delete';
 import type { AuthUserView } from '../auth/auth-user.types';
+import { Roles } from '../auth/roles.decorator';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { CreateTaskCommentDto } from './dto/create-task-comment.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { TasksService } from './tasks.service';
 
+@Roles('admin', 'manager')
 @Controller('tasks')
 export class TasksController {
   constructor(private readonly tasksService: TasksService) {}

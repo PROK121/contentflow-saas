@@ -12,16 +12,23 @@ import {
   Req,
   StreamableFile,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
+import { CrmAuditService } from '../audit/crm-audit.service';
 import { assertAdminDeleteUser } from '../auth/admin-delete';
 import type { AuthUserView } from '../auth/auth-user.types';
+import { Roles } from '../auth/roles.decorator';
 import { ContractsService } from './contracts.service';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { PatchContractDto } from './dto/patch-contract.dto';
 
+@Roles('admin', 'manager')
 @Controller('contracts')
 export class ContractsController {
-  constructor(private readonly contractsService: ContractsService) {}
+  constructor(
+    private readonly contractsService: ContractsService,
+    private readonly audit: CrmAuditService,
+  ) {}
 
   @Get()
   list(
@@ -45,10 +52,20 @@ export class ContractsController {
   }
 
   @Post()
-  create(@Body() body: CreateContractDto) {
-    return this.contractsService.createDraft(body);
+  async create(@Body() body: CreateContractDto, @Req() req: Request) {
+    const result = await this.contractsService.createDraft(body);
+    void this.audit.log({
+      user: req.user as AuthUserView | undefined,
+      action: 'contract.create',
+      entityType: 'Contract',
+      entityId: result.id,
+      metadata: { dealId: body.dealId, templateId: body.templateId },
+      ...CrmAuditService.fromRequest(req),
+    });
+    return result;
   }
 
+  @Throttle({ heavy: { limit: 30, ttl: 60_000 } })
   @Get(':contractId/versions/:versionNum/download')
   async downloadVersion(
     @Param('contractId') contractId: string,
@@ -123,16 +140,36 @@ export class ContractsController {
   async patch(
     @Param('contractId') contractId: string,
     @Body() body: PatchContractDto,
+    @Req() req: Request,
   ) {
     if (body.archived === undefined) {
       throw new BadRequestException('Укажите archived');
     }
-    return this.contractsService.updateArchived(contractId, body.archived);
+    const updated = await this.contractsService.updateArchived(
+      contractId,
+      body.archived,
+    );
+    void this.audit.log({
+      user: req.user as AuthUserView | undefined,
+      action: body.archived ? 'contract.archive' : 'contract.unarchive',
+      entityType: 'Contract',
+      entityId: contractId,
+      ...CrmAuditService.fromRequest(req),
+    });
+    return updated;
   }
 
   @Delete(':contractId')
   async remove(@Param('contractId') contractId: string, @Req() req: Request) {
     assertAdminDeleteUser(req.user as AuthUserView);
-    return this.contractsService.removeContract(contractId);
+    const result = await this.contractsService.removeContract(contractId);
+    void this.audit.log({
+      user: req.user as AuthUserView | undefined,
+      action: 'contract.delete',
+      entityType: 'Contract',
+      entityId: contractId,
+      ...CrmAuditService.fromRequest(req),
+    });
+    return result;
   }
 }

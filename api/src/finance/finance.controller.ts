@@ -1,8 +1,10 @@
 import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
 import { DealKind, PaymentDirection, PaymentStatus } from '@prisma/client';
+import { Roles } from '../auth/roles.decorator';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
 import { FinanceService } from './finance.service';
 
+@Roles('admin', 'manager')
 @Controller('finance')
 export class FinanceController {
   constructor(private readonly financeService: FinanceService) {}

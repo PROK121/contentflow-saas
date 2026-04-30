@@ -17,6 +17,7 @@ import {
 import { MaterialRequestStatus } from '@prisma/client';
 import type { Request } from 'express';
 import { assertManagerOrAdmin } from '../auth/rbac';
+import { Roles } from '../auth/roles.decorator';
 import {
   CreateMaterialRequestDto,
   ReviewUploadDto,
@@ -31,6 +32,7 @@ import { MaterialRequestsService } from './material-requests.service';
 /// напрямую в API, JwtAuthGuard всё равно проверит role-based роуты
 /// в будущем — пока этот контроллер открыт для менеджеров, маркетологов
 /// и админов одинаково).
+@Roles('admin', 'manager')
 @Controller()
 export class MaterialRequestsController {
   constructor(private readonly service: MaterialRequestsService) {}

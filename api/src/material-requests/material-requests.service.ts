@@ -23,11 +23,14 @@ import {
   UpdateMaterialRequestDto,
 } from './dto';
 import {
+  detectFileSignature,
+  isExtensionAllowedForSlot,
   isMimeAllowedForSlot,
   isValidSlot,
   maxSizeForSlot,
   MATERIAL_SLOTS,
 } from './material-slots';
+import { open } from 'fs/promises';
 import {
   materialAbsolutePath,
   materialRemotePath,
@@ -267,21 +270,54 @@ export class MaterialRequestsService {
     slot: string,
     file: Express.Multer.File,
   ) {
+    const localPathForCleanup = materialAbsolutePath(requestId, file.filename);
+    const reject = async (msg: string): Promise<never> => {
+      await safeUnlinkMaterial(localPathForCleanup);
+      throw new BadRequestException(msg);
+    };
+
     if (!isValidSlot(slot)) {
-      await safeUnlinkMaterial(materialAbsolutePath(requestId, file.filename));
-      throw new BadRequestException(`Неизвестный slot: ${slot}`);
+      return reject(`Неизвестный slot: ${slot}`);
     }
     const max = maxSizeForSlot(slot);
     if (file.size > max) {
-      await safeUnlinkMaterial(materialAbsolutePath(requestId, file.filename));
-      throw new BadRequestException(
-        `Файл слишком большой для слота ${slot}: лимит ${max} байт`,
-      );
+      return reject(`Файл слишком большой для слота ${slot}: лимит ${max} байт`);
     }
     if (!isMimeAllowedForSlot(slot, file.mimetype)) {
-      await safeUnlinkMaterial(materialAbsolutePath(requestId, file.filename));
-      throw new BadRequestException(
-        `MIME ${file.mimetype} не подходит для слота ${slot}`,
+      return reject(`MIME ${file.mimetype} не подходит для слота ${slot}`);
+    }
+    // Whitelist по расширению (multer кладёт оригинальное имя в `originalname`).
+    if (!isExtensionAllowedForSlot(slot, file.originalname)) {
+      return reject(
+        `Расширение файла не разрешено для слота ${slot}. Допустимые форматы перечислены в описании слота.`,
+      );
+    }
+    // Минимальная проверка по магическим байтам — отсекаем грубую подмену
+    // расширения (например, .exe, переименованный в .mp4). Не панацея —
+    // настоящая антивирусная проверка должна делаться отдельным воркером.
+    try {
+      const fh = await open(localPathForCleanup, 'r');
+      try {
+        const buf = Buffer.alloc(32);
+        await fh.read(buf, 0, 32, 0);
+        const detected = detectFileSignature(buf);
+        // Если сигнатура распознана и явно не подходит для слота — отказываем.
+        // Если не распознана (документы, субтитры, exotic-видео) — пропускаем.
+        if (detected) {
+          if (!isMimeAllowedForSlot(slot, detected)) {
+            return reject(
+              `Содержимое файла не соответствует слоту: обнаружен тип ${detected}.`,
+            );
+          }
+        }
+      } finally {
+        await fh.close();
+      }
+    } catch (e) {
+      this.logger.warn(
+        `signature check failed for ${file.filename}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
       );
     }
     const req = await this.findForHolderOrFail(orgId, requestId);

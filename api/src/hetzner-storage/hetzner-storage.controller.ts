@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import type { AuthUserView } from '../auth/auth-user.types';
+import { Roles } from '../auth/roles.decorator';
 import { HetznerStorageService } from './hetzner-storage.service';
 import * as path from 'path';
 
@@ -18,6 +19,7 @@ import * as path from 'path';
  * Административные эндпоинты для работы с Hetzner Storage Box.
  * Доступны только пользователям с ролью admin.
  */
+@Roles('admin')
 @Controller('admin/storage')
 export class HetznerStorageController {
   private readonly logger = new Logger(HetznerStorageController.name);

@@ -1,14 +1,18 @@
-node_modules
-# Keep environment variables out of version control
+# Зависимости
+/node_modules
+/coverage
+
+# Сборка Nest
+/dist
+
+# Локальная БД и временные данные
+/uploads
+
+# env-файлы — секреты задаются через Render Environment / 1Password / Doppler.
+# В репо допустим только .env.example.
 .env
+.env.*
+!.env.example
 
-/generated/prisma
-
-# Собранный бандл — собирается в контейнере/CI
-dist/
-
-# Загруженные вложения к сделкам (локально)
-uploads/
-
-# macOS
-.DS_Store
+# Логи
+*.log

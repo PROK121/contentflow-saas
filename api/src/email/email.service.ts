@@ -176,6 +176,60 @@ export class EmailService implements OnModuleInit {
     return `${c} через ${base}`;
   }
 
+  /// Записывает попытку отправки письма в EmailDelivery (best-effort —
+  /// если БД недоступна, не валим бизнес-операцию). Возвращает id записи,
+  /// чтобы при ретрае мы инкрементировали attempts на той же строке.
+  private async recordDelivery(
+    input: SendEmailInput,
+    status: 'pending' | 'sent' | 'failed' | 'skipped',
+    extras: { attempts?: number; lastError?: string; sentAt?: Date } = {},
+  ): Promise<string | null> {
+    try {
+      const row = await this.prisma.emailDelivery.create({
+        data: {
+          to: input.to,
+          category: input.category,
+          subject: input.subject,
+          entityId: input.entityId ?? null,
+          status,
+          attempts: extras.attempts ?? (status === 'sent' ? 1 : 0),
+          lastError: extras.lastError ?? null,
+          sentAt: extras.sentAt ?? null,
+        },
+        select: { id: true },
+      });
+      return row.id;
+    } catch (e) {
+      this.logger.warn(
+        `Failed to record email delivery (${input.category}): ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+      return null;
+    }
+  }
+
+  /// Обновляет статус ранее созданной записи EmailDelivery (для ретрая).
+  private async updateDelivery(
+    id: string | null,
+    patch: Partial<{
+      status: 'pending' | 'sent' | 'failed' | 'skipped';
+      attempts: number;
+      lastError: string | null;
+      sentAt: Date | null;
+    }>,
+  ) {
+    if (!id) return;
+    try {
+      await this.prisma.emailDelivery.update({
+        where: { id },
+        data: patch,
+      });
+    } catch {
+      // ignore
+    }
+  }
+
   /// Отправка письма. Не бросает — ошибки логируются.
   async send(input: SendEmailInput): Promise<{ ok: boolean; mode: 'smtp' | 'console' }>{
     // В relay-режиме envelope-from подменяем на адрес инициатора (если он
@@ -207,8 +261,15 @@ export class EmailService implements OnModuleInit {
       this.logger.log(
         `[EMAIL/${input.category}] -> ${input.to}\nFrom: ${fromStr}${replyHint}\nSubject: ${input.subject}\n---\n${input.text}\n---`,
       );
+      // В console-режиме не пишем EmailDelivery: это явный dev/staging,
+      // и нет физической отправки.
       return { ok: true, mode: 'console' };
     }
+    // Создаём запись pending перед попыткой отправки. Для retry будет
+    // полезно — увидим в БД, на каком письме застопорились.
+    const deliveryId = await this.recordDelivery(input, 'pending', {
+      attempts: 0,
+    });
     try {
       await this.transporter.sendMail({
         from: fromHeader,
@@ -225,6 +286,12 @@ export class EmailService implements OnModuleInit {
           input.entityId ? ` (entity=${input.entityId})` : ''
         }${input.replyTo ? ` (reply-to=${input.replyTo})` : ''}`,
       );
+      await this.updateDelivery(deliveryId, {
+        status: 'sent',
+        attempts: 1,
+        sentAt: new Date(),
+        lastError: null,
+      });
       return { ok: true, mode: 'smtp' };
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : String(e);
@@ -253,21 +320,91 @@ export class EmailService implements OnModuleInit {
               input.entityId ? ` (entity=${input.entityId})` : ''
             }`,
           );
+          await this.updateDelivery(deliveryId, {
+            status: 'sent',
+            attempts: 2,
+            sentAt: new Date(),
+            lastError: null,
+          });
           return { ok: true, mode: 'smtp' };
         } catch (e2) {
+          const e2Msg = e2 instanceof Error ? e2.message : String(e2);
           this.logger.error(
-            `[EMAIL/${input.category}] FAILED (fallback) -> ${input.to}: ${
-              e2 instanceof Error ? e2.message : String(e2)
-            }`,
+            `[EMAIL/${input.category}] FAILED (fallback) -> ${input.to}: ${e2Msg}`,
           );
+          await this.updateDelivery(deliveryId, {
+            status: 'failed',
+            attempts: 2,
+            lastError: e2Msg,
+          });
           return { ok: false, mode: 'smtp' };
         }
       }
       this.logger.error(
         `[EMAIL/${input.category}] FAILED -> ${input.to}: ${errMsg}`,
       );
+      await this.updateDelivery(deliveryId, {
+        status: 'failed',
+        attempts: 1,
+        lastError: errMsg,
+      });
       return { ok: false, mode: 'smtp' };
     }
+  }
+
+  /// Простой ретрай неудачно доставленных писем. Без BullMQ/Redis —
+  /// вызывается cron-задачей раз в 5 минут (см. EmailRetryService) или
+  /// вручную через admin-эндпоинт. Берёт записи `failed` с attempts<3,
+  /// помечает в `pending`, повторяет. Это «бедная» очередь, но лучше,
+  /// чем терять письма в логах.
+  async retryFailed(maxAttempts = 3, batchSize = 20): Promise<number> {
+    const failed = await this.prisma.emailDelivery.findMany({
+      where: {
+        status: 'failed',
+        attempts: { lt: maxAttempts },
+      },
+      orderBy: { updatedAt: 'asc' },
+      take: batchSize,
+    });
+    if (failed.length === 0) return 0;
+    let retried = 0;
+    for (const d of failed) {
+      try {
+        if (!this.transporter) break;
+        await this.prisma.emailDelivery.update({
+          where: { id: d.id },
+          data: { status: 'pending' },
+        });
+        await this.transporter.sendMail({
+          from: { name: this.defaultFromName, address: this.fromAddress },
+          to: d.to,
+          subject: d.subject,
+          text: '(повторная доставка предыдущего письма)',
+          // html не сохраняли — это упрощённый ретрай. Полноценная очередь
+          // должна хранить весь payload (text/html) для точного повтора.
+        });
+        await this.prisma.emailDelivery.update({
+          where: { id: d.id },
+          data: {
+            status: 'sent',
+            attempts: { increment: 1 },
+            sentAt: new Date(),
+            lastError: null,
+          },
+        });
+        retried++;
+      } catch (e) {
+        await this.prisma.emailDelivery.update({
+          where: { id: d.id },
+          data: {
+            status: 'failed',
+            attempts: { increment: 1 },
+            lastError: e instanceof Error ? e.message : String(e),
+          },
+        });
+      }
+    }
+    return retried;
   }
 
   /// Высокоуровневый шорткат: рендерит шаблон в html+text и зовёт `send`.
@@ -297,6 +434,17 @@ export class EmailService implements OnModuleInit {
       if (optedOut) {
         this.logger.log(
           `[EMAIL/${input.category}] skipped (user opted out) -> ${input.to}`,
+        );
+        // Записываем skip в EmailDelivery — для журнала «почему не доставлено».
+        await this.recordDelivery(
+          {
+            to: input.to,
+            subject: input.subject,
+            text: '',
+            category: input.category,
+            entityId: input.entityId,
+          },
+          'skipped',
         );
         return { ok: true, mode: 'skipped' };
       }
@@ -337,16 +485,38 @@ export class EmailService implements OnModuleInit {
     }
   }
 
-  /// Хелпер: безопасный абсолютный URL до фронта. Если WEB_ORIGIN не задан —
-  /// возвращаем относительный путь (письмо всё равно лучше отправить).
+  /// Хелпер: безопасный абсолютный URL до фронта.
+  ///
+  /// `WEB_ORIGIN` может быть CSV (несколько разрешённых origin для CORS),
+  /// например `"https://app.example.com,https://staging.example.com"`. Для
+  /// формирования ссылок берём первый — он же canonical для писем.
+  ///
+  /// Дополнительно валидируем, что origin парсится как URL и `pathWithLeadingSlash`
+  /// действительно начинается со слеша и без protocol-relative форм («//host»).
   buildWebUrl(pathWithLeadingSlash: string): string {
-    const origin = (this.config.get<string>('WEB_ORIGIN') || '').replace(
-      /\/+$/,
-      '',
-    );
-    return origin
-      ? `${origin}${pathWithLeadingSlash}`
-      : pathWithLeadingSlash;
+    const raw = (this.config.get<string>('WEB_ORIGIN') || '').trim();
+    const firstOrigin = raw.split(',').map((s) => s.trim()).find(Boolean);
+    let normalizedPath = pathWithLeadingSlash || '/';
+    if (!normalizedPath.startsWith('/')) {
+      normalizedPath = `/${normalizedPath}`;
+    }
+    if (normalizedPath.startsWith('//')) {
+      normalizedPath = `/${normalizedPath.replace(/^\/+/, '')}`;
+    }
+    if (!firstOrigin) {
+      return normalizedPath;
+    }
+    try {
+      const u = new URL(firstOrigin);
+      // Сохраняем canonical: protocol://host(:port)
+      const base = `${u.protocol}//${u.host}`.replace(/\/+$/, '');
+      return `${base}${normalizedPath}`;
+    } catch {
+      this.logger.warn(
+        `WEB_ORIGIN не парсится как URL: "${firstOrigin}" — отдаём относительный путь`,
+      );
+      return normalizedPath;
+    }
   }
 }
 

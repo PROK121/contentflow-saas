@@ -19,6 +19,7 @@ import { randomUUID } from 'crypto';
 import type { Request } from 'express';
 import { assertAdminDeleteUser } from '../auth/admin-delete';
 import type { AuthUserView } from '../auth/auth-user.types';
+import { Roles } from '../auth/roles.decorator';
 import * as fs from 'fs';
 import { diskStorage } from 'multer';
 import * as path from 'path';
@@ -80,6 +81,7 @@ function dealDocumentUploadOptions() {
   };
 }
 
+@Roles('admin', 'manager')
 @Controller('deals')
 export class DealsController {
   constructor(private readonly dealsService: DealsService) {}

@@ -12,6 +12,7 @@ import {
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import type { AuthUserView } from '../auth/auth-user.types';
+import { Roles } from '../auth/roles.decorator';
 import { EmailService } from '../email/email.service';
 import {
   ClaimInviteDto,
@@ -39,6 +40,7 @@ export class HolderAuthController {
   // -------------------------------------------------------------------------
   // Менеджер: создаёт инвайт. Требует JWT (используется глобальный JwtAuthGuard).
   // -------------------------------------------------------------------------
+  @Roles('admin', 'manager')
   @Post('invites')
   @HttpCode(HttpStatus.CREATED)
   async createInvite(@Body() dto: CreateInviteDto, @Req() req: Request) {
@@ -89,6 +91,7 @@ export class HolderAuthController {
   }
 
   /// Менеджерский список инвайтов и активных правообладателей по организации.
+  @Roles('admin', 'manager')
   @Get('invites')
   async listInvites(@Query('orgId') orgId?: string) {
     if (!orgId) throw new BadRequestException('orgId is required');
@@ -132,14 +135,30 @@ export class HolderAuthController {
     if (!link) {
       return { ok: true };
     }
-    // Безопасный путь редиректа — только /holder/* и без protocol-relative.
-    const safeRedirect =
-      dto.redirect &&
-      typeof dto.redirect === 'string' &&
-      dto.redirect.startsWith('/holder') &&
-      !dto.redirect.startsWith('//')
-        ? dto.redirect
-        : '/holder';
+    // Безопасный путь редиректа — только относительные `/holder/*`. Жёстко:
+    //  • строка;
+    //  • ровно один лидирующий «/», не «//» (protocol-relative);
+    //  • первый сегмент `/holder/...` или просто `/holder`;
+    //  • никаких scheme: «http:», «javascript:» и т.п.;
+    //  • без CR/LF, чтобы не сломать заголовки писем.
+    const isSafeHolderPath = (raw: unknown): raw is string => {
+      if (typeof raw !== 'string') return false;
+      const v = raw.trim();
+      if (!v.startsWith('/')) return false;
+      if (v.startsWith('//')) return false;
+      if (/[\r\n\t]/.test(v)) return false;
+      // должен совпадать /holder или начинаться /holder/
+      if (v !== '/holder' && !v.startsWith('/holder/')) return false;
+      // защитимся от вложенных схем «.../@host/...» (полная парсинг-проверка)
+      try {
+        const u = new URL(v, 'http://placeholder');
+        if (u.host !== 'placeholder') return false; // ушли на чужой host
+        return u.pathname === '/holder' || u.pathname.startsWith('/holder/');
+      } catch {
+        return false;
+      }
+    };
+    const safeRedirect = isSafeHolderPath(dto.redirect) ? dto.redirect : '/holder';
 
     const url = this.email.buildWebUrl(
       `/holder/auth/verify?token=${encodeURIComponent(

@@ -316,17 +316,20 @@ export class HolderAuthService {
           organizationId: true,
           locale: true,
           acceptedTermsAt: true,
+          tokenVersion: true,
         },
       });
       return fresh;
     });
 
+    const { tokenVersion, ...userView } = result;
     const accessToken = await this.jwt.signAsync({
-      sub: result.id,
-      email: result.email,
-      role: result.role,
+      sub: userView.id,
+      email: userView.email,
+      role: userView.role,
+      tv: tokenVersion,
     });
-    return { accessToken, user: result };
+    return { accessToken, user: userView };
   }
 
   // ==========================================================================
@@ -382,6 +385,7 @@ export class HolderAuthService {
         organizationId: true,
         locale: true,
         acceptedTermsAt: true,
+        tokenVersion: true,
       },
     });
     if (!user || user.role !== UserRole.rights_owner) {
@@ -401,11 +405,13 @@ export class HolderAuthService {
         },
       });
     }
+    const { tokenVersion, ...userView } = user;
     const accessToken = await this.jwt.signAsync({
-      sub: user.id,
-      email: user.email,
-      role: user.role,
+      sub: userView.id,
+      email: userView.email,
+      role: userView.role,
+      tv: tokenVersion,
     });
-    return { accessToken, user };
+    return { accessToken, user: userView };
   }
 }

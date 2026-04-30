@@ -7,11 +7,33 @@ import { SerializeInterceptor } from './common/serialize.interceptor';
 import { AppModule } from './app.module';
 
 function assertEnv() {
+  const isProd = process.env.NODE_ENV === 'production';
   const required: string[] = ['DATABASE_URL', 'JWT_SECRET'];
   const missing = required.filter((k) => !process.env[k]);
   if (missing.length) {
     throw new Error(
       `[startup] Missing required environment variables: ${missing.join(', ')}`,
+    );
+  }
+
+  const jwtSecret = process.env.JWT_SECRET ?? '';
+  // В проде минимум 48 символов (≈192 бит энтропии после base16). Для dev
+  // мягче — 16 символов, чтобы не блокировать локальный запуск.
+  const minLen = isProd ? 48 : 16;
+  if (jwtSecret.length < minLen) {
+    throw new Error(
+      `[startup] JWT_SECRET слишком короткий (${jwtSecret.length}). Минимум ${minLen} символов в ${isProd ? 'prod' : 'dev'}. ` +
+        `Сгенерируйте: openssl rand -hex 48`,
+    );
+  }
+  // Защита от дефолтных placeholder'ов в проде.
+  if (
+    isProd &&
+    /change-me|local-dev-secret|placeholder|todo|example/i.test(jwtSecret)
+  ) {
+    throw new Error(
+      `[startup] JWT_SECRET выглядит как placeholder: "${jwtSecret.slice(0, 12)}…". ` +
+        `На проде обязательно сгенерировать новый: openssl rand -hex 48`,
     );
   }
 
@@ -31,6 +53,19 @@ function assertEnv() {
         );
       }
     }
+  } else if (isProd) {
+    throw new Error(
+      `[startup] WEB_ORIGIN не задан в production. Укажите URL веб-сервиса (без слеша на конце).`,
+    );
+  }
+
+  // Если SMTP включён — EMAIL_FROM обязателен в проде, иначе письма уйдут
+  // с дефолтного `noreply@growix.local`, который никем не подписан.
+  if (isProd && process.env.SMTP_URL && !process.env.EMAIL_FROM) {
+    throw new Error(
+      `[startup] SMTP_URL задан, но EMAIL_FROM не указан. ` +
+        `Установите адрес отправителя, подписанный SPF/DKIM (например "Growix Content <noreply@growixcontent.com>").`,
+    );
   }
 }
 
