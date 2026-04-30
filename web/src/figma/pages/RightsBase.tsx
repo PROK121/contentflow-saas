@@ -91,6 +91,8 @@ type OrgRow = {
     contactName?: string;
     contactEmail?: string;
     contactPhone?: string;
+    contactContent?: string;
+    contactTelegram?: string;
     notes?: string;
   } | null;
 };
@@ -410,27 +412,44 @@ export function RightsBase() {
   const [catalog, setCatalog] = useState<CatalogItemRow[]>([]);
   const [deals, setDeals] = useState<DealRow[]>([]);
   const [orgs, setOrgs] = useState<OrgRow[]>([]);
+  const [poOrgs, setPoOrgs] = useState<OrgRow[]>([]);
   const [contracts, setContracts] = useState<ContractRow[]>([]);
   const [materialRequests, setMaterialRequests] = useState<MaterialRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [expiryDays, setExpiryDays] = useState<60 | 90 | 180 | null>(null);
   const [activeTab, setActiveTab] = useState("titles");
+  const [contactsSubTab, setContactsSubTab] = useState<"platforms" | "po">("platforms");
+  const [contactSavingId, setContactSavingId] = useState<string | null>(null);
+  const [contactDrafts, setContactDrafts] = useState<
+    Record<
+      string,
+      {
+        contactContent: string;
+        contactName: string;
+        contactPhone: string;
+        contactEmail: string;
+        contactTelegram: string;
+      }
+    >
+  >({});
 
   const load = useCallback(async () => {
     setLoading(true);
     setErr(null);
     try {
-      const [cat, dls, org, ctr, mr] = await Promise.all([
+      const [cat, dls, org, holders, ctr, mr] = await Promise.all([
         v1Fetch<CatalogItemRow[]>("/catalog/items"),
         v1Fetch<DealRow[]>("/deals"),
         v1Fetch<OrgRow[]>("/organizations?type=client"),
+        v1Fetch<OrgRow[]>("/organizations?type=rights_holder"),
         v1Fetch<ContractRow[]>("/contracts?limit=200"),
         v1Fetch<MaterialRequest[]>("/material-requests").catch(() => [] as MaterialRequest[]),
       ]);
       setCatalog(cat.filter((c) => c.status !== "archived"));
       setDeals(dls.filter((x) => x.archived !== true));
       setOrgs(org);
+      setPoOrgs(holders);
       setContracts(ctr);
       setMaterialRequests(mr);
     } catch (e) {
@@ -438,6 +457,7 @@ export function RightsBase() {
       setCatalog([]);
       setDeals([]);
       setOrgs([]);
+      setPoOrgs([]);
       setContracts([]);
       setMaterialRequests([]);
     } finally {
@@ -748,6 +768,95 @@ export function RightsBase() {
     return rows;
   }, [deals, catalog, contractsByDealId, expiryThreshold]);
 
+  async function saveContactCard(
+    orgId: string,
+    patch: {
+      contactContent: string;
+      contactName: string;
+      contactPhone: string;
+      contactEmail: string;
+      contactTelegram: string;
+    },
+  ) {
+    setContactSavingId(orgId);
+    setErr(null);
+    try {
+      await v1Fetch(`/organizations/${orgId}/contact-card`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          content: patch.contactContent,
+          contactName: patch.contactName,
+          contactPhone: patch.contactPhone,
+          contactEmail: patch.contactEmail,
+          contactTelegram: patch.contactTelegram,
+        }),
+      });
+      setOrgs((prev) =>
+        prev.map((o) =>
+          o.id === orgId
+            ? {
+                ...o,
+                metadata: {
+                  ...(o.metadata ?? {}),
+                  contactContent: patch.contactContent,
+                  contactName: patch.contactName,
+                  contactPhone: patch.contactPhone,
+                  contactEmail: patch.contactEmail,
+                  contactTelegram: patch.contactTelegram,
+                },
+              }
+            : o,
+        ),
+      );
+      setPoOrgs((prev) =>
+        prev.map((o) =>
+          o.id === orgId
+            ? {
+                ...o,
+                metadata: {
+                  ...(o.metadata ?? {}),
+                  contactContent: patch.contactContent,
+                  contactName: patch.contactName,
+                  contactPhone: patch.contactPhone,
+                  contactEmail: patch.contactEmail,
+                  contactTelegram: patch.contactTelegram,
+                },
+              }
+            : o,
+        ),
+      );
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Ошибка сохранения контакта");
+    } finally {
+      setContactSavingId(null);
+    }
+  }
+
+  function getContactDraft(o: OrgRow) {
+    const m = o.metadata ?? {};
+    return (
+      contactDrafts[o.id] ?? {
+        contactContent: m.contactContent ?? "",
+        contactName: m.contactName ?? "",
+        contactPhone: m.contactPhone ?? "",
+        contactEmail: m.contactEmail ?? "",
+        contactTelegram: m.contactTelegram ?? "",
+      }
+    );
+  }
+
+  function updateContactDraft(
+    org: OrgRow,
+    key: "contactContent" | "contactName" | "contactPhone" | "contactEmail" | "contactTelegram",
+    value: string,
+  ) {
+    const base = getContactDraft(org);
+    setContactDrafts((prev) => ({
+      ...prev,
+      [org.id]: { ...base, [key]: value },
+    }));
+  }
+
   if (loading) {
     return (
       <div className="p-8 text-sm text-muted-foreground">Загрузка базы прав…</div>
@@ -792,6 +901,9 @@ export function RightsBase() {
             </TabsTrigger>
             <TabsTrigger value="templates" className="text-xs sm:text-sm">
               Шаблоны компании
+            </TabsTrigger>
+            <TabsTrigger value="contacts-base" className="text-xs sm:text-sm">
+              База контактов
             </TabsTrigger>
           </TabsList>
 
@@ -1479,6 +1591,105 @@ export function RightsBase() {
                 </a>
               ))}
             </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="contacts-base" className="mt-0">
+          <div className="space-y-4">
+            <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/30">
+              <button
+                type="button"
+                className={`px-3 py-1.5 text-xs font-semibold rounded ${
+                  contactsSubTab === "platforms"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted"
+                }`}
+                onClick={() => setContactsSubTab("platforms")}
+              >
+                Контакты Площадок
+              </button>
+              <button
+                type="button"
+                className={`px-3 py-1.5 text-xs font-semibold rounded ${
+                  contactsSubTab === "po"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted"
+                }`}
+                onClick={() => setContactsSubTab("po")}
+              >
+                Контакты ПО
+              </button>
+            </div>
+            <TableShell>
+              <thead>
+                <tr>
+                  <Th>Название компании</Th>
+                  <Th>Контент</Th>
+                  <Th>ФИО контактного лица</Th>
+                  <Th>Телефон</Th>
+                  <Th>Email</Th>
+                  <Th>Telegram</Th>
+                  <Th className="text-right">Действие</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {(contactsSubTab === "platforms" ? orgs : poOrgs).map((o) => {
+                  const draft = getContactDraft(o);
+                  return (
+                    <tr key={o.id}>
+                      <Td>{o.legalName}</Td>
+                      <Td>
+                        <input
+                          className="w-48 rounded border border-border bg-input-background px-2 py-1 text-xs"
+                          value={draft.contactContent}
+                          onChange={(e) => updateContactDraft(o, "contactContent", e.target.value)}
+                        />
+                      </Td>
+                      <Td>
+                        <input
+                          className="w-48 rounded border border-border bg-input-background px-2 py-1 text-xs"
+                          value={draft.contactName}
+                          onChange={(e) => updateContactDraft(o, "contactName", e.target.value)}
+                        />
+                      </Td>
+                      <Td>
+                        <input
+                          className="w-40 rounded border border-border bg-input-background px-2 py-1 text-xs"
+                          value={draft.contactPhone}
+                          onChange={(e) => updateContactDraft(o, "contactPhone", e.target.value)}
+                        />
+                      </Td>
+                      <Td>
+                        <input
+                          className="w-48 rounded border border-border bg-input-background px-2 py-1 text-xs"
+                          value={draft.contactEmail}
+                          onChange={(e) => updateContactDraft(o, "contactEmail", e.target.value)}
+                        />
+                      </Td>
+                      <Td>
+                        <input
+                          className="w-40 rounded border border-border bg-input-background px-2 py-1 text-xs"
+                          value={draft.contactTelegram}
+                          onChange={(e) =>
+                            updateContactDraft(o, "contactTelegram", e.target.value)
+                          }
+                        />
+                      </Td>
+                      <Td className="text-right">
+                        <button
+                          type="button"
+                          onClick={() => void saveContactCard(o.id, draft)}
+                          disabled={contactSavingId === o.id}
+                          className="rounded-md border border-border px-2 py-1 text-xs font-medium hover:bg-muted disabled:opacity-60"
+                        >
+                          {contactSavingId === o.id ? "Сохранение…" : "Сохранить"}
+                        </button>
+                      </Td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </TableShell>
           </div>
         </TabsContent>
       </Tabs>

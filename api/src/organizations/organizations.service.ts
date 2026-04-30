@@ -148,4 +148,40 @@ export class OrganizationsService {
         updated.holderFinanceOverride ?? org.holderFinanceVisibility,
     };
   }
+
+  async setContactCard(
+    orgId: string,
+    dto: {
+      content?: string;
+      contactName?: string;
+      contactPhone?: string;
+      contactEmail?: string;
+      contactTelegram?: string;
+    },
+  ) {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: orgId },
+      select: { id: true, metadata: true },
+    });
+    if (!org) throw new NotFoundException('Организация не найдена');
+    const current =
+      org.metadata && typeof org.metadata === 'object' && !Array.isArray(org.metadata)
+        ? ({ ...org.metadata } as Record<string, unknown>)
+        : {};
+    const patch: Record<string, string> = {};
+    if (dto.content !== undefined) patch.contactContent = dto.content.trim();
+    if (dto.contactName !== undefined) patch.contactName = dto.contactName.trim();
+    if (dto.contactPhone !== undefined) patch.contactPhone = dto.contactPhone.trim();
+    if (dto.contactEmail !== undefined) patch.contactEmail = dto.contactEmail.trim();
+    if (dto.contactTelegram !== undefined)
+      patch.contactTelegram = dto.contactTelegram.trim();
+    for (const [k, v] of Object.entries(patch)) {
+      if (v) current[k] = v;
+      else delete current[k];
+    }
+    return this.prisma.organization.update({
+      where: { id: orgId },
+      data: { metadata: current as Prisma.InputJsonValue },
+    });
+  }
 }

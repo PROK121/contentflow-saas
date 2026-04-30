@@ -11,7 +11,7 @@ import {
   Req,
 } from '@nestjs/common';
 import { HolderFinanceVisibility, OrganizationType, UserRole } from '@prisma/client';
-import { IsIn } from 'class-validator';
+import { IsIn, IsOptional, IsString } from 'class-validator';
 import type { Request } from 'express';
 import { assertManagerOrAdmin } from '../auth/rbac';
 import { OrganizationsService } from './organizations.service';
@@ -25,6 +25,28 @@ class SetHolderVisibilityDto {
 class SetHolderUserVisibilityDto {
   @IsIn(['inherit', 'limited', 'full'])
   visibility!: 'inherit' | HolderFinanceVisibility;
+}
+
+class SetContactCardDto {
+  @IsOptional()
+  @IsString()
+  content?: string;
+
+  @IsOptional()
+  @IsString()
+  contactName?: string;
+
+  @IsOptional()
+  @IsString()
+  contactPhone?: string;
+
+  @IsOptional()
+  @IsString()
+  contactEmail?: string;
+
+  @IsOptional()
+  @IsString()
+  contactTelegram?: string;
 }
 
 @Controller('organizations')
@@ -99,5 +121,15 @@ export class OrganizationsController {
       id,
       Number.isFinite(parsed) ? (parsed as number) : 50,
     );
+  }
+
+  @Patch(':id/contact-card')
+  setContactCard(
+    @Param('id') id: string,
+    @Body() body: SetContactCardDto,
+    @Req() req: Request,
+  ) {
+    assertManagerOrAdmin(req);
+    return this.organizationsService.setContactCard(id, body);
   }
 }
