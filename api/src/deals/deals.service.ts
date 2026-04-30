@@ -15,6 +15,7 @@ import {
   Platform,
   Prisma,
 } from '@prisma/client';
+import { HetznerStorageService } from '../hetzner-storage/hetzner-storage.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { DriveService } from '../drive/drive.service';
 import { CreateDealDto } from './dto/create-deal.dto';
@@ -54,6 +55,7 @@ export class DealsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly drive: DriveService,
+    private readonly hetzner: HetznerStorageService,
   ) {}
 
   private async syncUploadedPdfToLatestContractVersion(
@@ -83,9 +85,8 @@ export class DealsService {
 
     await mkdir(path.dirname(absDst), { recursive: true });
     await copyFile(absSrc, absDst);
-    const sha256 = createHash('sha256')
-      .update(await readFile(absDst))
-      .digest('hex');
+    const fileBuffer = await readFile(absDst);
+    const sha256 = createHash('sha256').update(fileBuffer).digest('hex');
 
     await this.prisma.contractVersion.create({
       data: {
@@ -96,6 +97,18 @@ export class DealsService {
         templateId: contract.templateId ?? 'default-template',
       },
     });
+
+    // Зеркалим в Hetzner Storage Box (best-effort): persistent disk Render
+    // не реплицируется, и потеря инстанса = потеря всех договоров. См.
+    // ContractsService.tryRestoreFromHetzner для fallback при чтении.
+    try {
+      const remoteRoot = (
+        process.env.HETZNER_CONTRACTS_DIR ?? '/contentflow/contracts'
+      ).replace(/\/+$/, '');
+      await this.hetzner.upload(`${remoteRoot}/${storageKey}`, fileBuffer);
+    } catch {
+      // тихо проглатываем: бизнес-операция не должна валиться от внешнего хранилища
+    }
   }
 
   findAll(filters?: {

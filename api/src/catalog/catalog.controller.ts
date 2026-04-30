@@ -13,6 +13,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import type { Request } from 'express';
+import { CrmAuditService } from '../audit/crm-audit.service';
 import { assertAdminDeleteUser } from '../auth/admin-delete';
 import type { AuthUserView } from '../auth/auth-user.types';
 import { Roles } from '../auth/roles.decorator';
@@ -54,7 +55,10 @@ function catalogPosterUploadOptions() {
 @Roles('admin', 'manager')
 @Controller('catalog/items')
 export class CatalogController {
-  constructor(private readonly catalogService: CatalogService) {}
+  constructor(
+    private readonly catalogService: CatalogService,
+    private readonly audit: CrmAuditService,
+  ) {}
 
   @Get()
   list(@Query('skip') skip?: string, @Query('take') take?: string) {
@@ -65,8 +69,17 @@ export class CatalogController {
   }
 
   @Post()
-  create(@Body() body: CreateCatalogItemDto) {
-    return this.catalogService.create(body);
+  async create(@Body() body: CreateCatalogItemDto, @Req() req: Request) {
+    const result = await this.catalogService.create(body);
+    void this.audit.log({
+      user: req.user as AuthUserView | undefined,
+      action: 'catalog.create',
+      entityType: 'CatalogItem',
+      entityId: (result as { id?: string })?.id,
+      organizationId: body.rightsHolderOrgId,
+      ...CrmAuditService.fromRequest(req),
+    });
+    return result;
   }
 
   @Get(':id/poster')
@@ -92,13 +105,34 @@ export class CatalogController {
   }
 
   @Patch(':id')
-  patch(@Param('id') id: string, @Body() body: UpdateCatalogItemDto) {
-    return this.catalogService.update(id, body);
+  async patch(
+    @Param('id') id: string,
+    @Body() body: UpdateCatalogItemDto,
+    @Req() req: Request,
+  ) {
+    const result = await this.catalogService.update(id, body);
+    void this.audit.log({
+      user: req.user as AuthUserView | undefined,
+      action: 'catalog.patch',
+      entityType: 'CatalogItem',
+      entityId: id,
+      metadata: { fields: Object.keys(body) },
+      ...CrmAuditService.fromRequest(req),
+    });
+    return result;
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string, @Req() req: Request) {
+  async remove(@Param('id') id: string, @Req() req: Request) {
     assertAdminDeleteUser(req.user as AuthUserView);
-    return this.catalogService.removeCatalogItem(id);
+    const result = await this.catalogService.removeCatalogItem(id);
+    void this.audit.log({
+      user: req.user as AuthUserView | undefined,
+      action: 'catalog.delete',
+      entityType: 'CatalogItem',
+      entityId: id,
+      ...CrmAuditService.fromRequest(req),
+    });
+    return result;
   }
 }

@@ -16,6 +16,8 @@ import {
 } from '@nestjs/common';
 import { MaterialRequestStatus } from '@prisma/client';
 import type { Request } from 'express';
+import { CrmAuditService } from '../audit/crm-audit.service';
+import type { AuthUserView } from '../auth/auth-user.types';
 import { assertManagerOrAdmin } from '../auth/rbac';
 import { Roles } from '../auth/roles.decorator';
 import {
@@ -35,7 +37,10 @@ import { MaterialRequestsService } from './material-requests.service';
 @Roles('admin', 'manager')
 @Controller()
 export class MaterialRequestsController {
-  constructor(private readonly service: MaterialRequestsService) {}
+  constructor(
+    private readonly service: MaterialRequestsService,
+    private readonly audit: CrmAuditService,
+  ) {}
 
   /// Каталог слотов (для UI). Не зависит от данных, кэшируется фронтом.
   @Get('material-slots')
@@ -65,9 +70,19 @@ export class MaterialRequestsController {
   }
 
   @Post('material-requests')
-  create(@Body() dto: CreateMaterialRequestDto, @Req() req: Request) {
+  async create(@Body() dto: CreateMaterialRequestDto, @Req() req: Request) {
     const user = assertManagerOrAdmin(req);
-    return this.service.createForCatalogItem(dto, user.id);
+    const result = await this.service.createForCatalogItem(dto, user.id);
+    void this.audit.log({
+      user,
+      action: 'material_request.create',
+      entityType: 'MaterialRequest',
+      entityId: result.id,
+      organizationId: result.organizationId ?? undefined,
+      metadata: { catalogItemId: dto.catalogItemId, slots: dto.requestedSlots },
+      ...CrmAuditService.fromRequest(req),
+    });
+    return result;
   }
 
   @Get('material-requests/:id')
@@ -83,21 +98,38 @@ export class MaterialRequestsController {
   }
 
   @Delete('material-requests/:id')
-  cancel(@Param('id') id: string, @Req() req: Request) {
-    assertManagerOrAdmin(req);
-    return this.service.cancel(id);
+  async cancel(@Param('id') id: string, @Req() req: Request) {
+    const user = assertManagerOrAdmin(req);
+    const result = await this.service.cancel(id);
+    void this.audit.log({
+      user,
+      action: 'material_request.cancel',
+      entityType: 'MaterialRequest',
+      entityId: id,
+      ...CrmAuditService.fromRequest(req),
+    });
+    return result;
   }
 
   @Post('material-requests/:id/uploads/:uploadId/review')
   @HttpCode(HttpStatus.OK)
-  review(
+  async review(
     @Param('id') id: string,
     @Param('uploadId') uploadId: string,
     @Body() dto: ReviewUploadDto,
     @Req() req: Request,
   ) {
     const user = assertManagerOrAdmin(req);
-    return this.service.reviewUpload(id, uploadId, user, dto);
+    const result = await this.service.reviewUpload(id, uploadId, user, dto);
+    void this.audit.log({
+      user,
+      action: 'material_request.review',
+      entityType: 'MaterialUpload',
+      entityId: uploadId,
+      metadata: { requestId: id, decision: dto.reviewStatus, comment: dto.reviewerComment },
+      ...CrmAuditService.fromRequest(req),
+    });
+    return result;
   }
 
   @Get('material-requests/:id/uploads/:uploadId/download')

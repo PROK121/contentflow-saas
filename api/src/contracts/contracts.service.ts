@@ -189,6 +189,35 @@ export class ContractsService {
     return { stream, fileName };
   }
 
+  /// Зеркалит созданный файл в Hetzner Storage Box. Best-effort: ошибки
+  /// SFTP не валят бизнес-операцию (контракт уже создан в БД и на локальном
+  /// диске Render). При следующем чтении, если файл локально пропал,
+  /// `tryRestoreFromHetzner` достанет его обратно — при условии, что
+  /// здесь успешно зеркалирование сработало.
+  ///
+  /// Если HETZNER_STORAGE_PASSWORD не задан, сервис всё равно попытается
+  /// и упадёт с понятным «Authentication failed» — это корректное поведение
+  /// в dev. В проде сразу видно по логу, что зеркало не пишется.
+  private async mirrorContractFileToHetzner(
+    storageKey: string,
+    data: Buffer,
+  ): Promise<void> {
+    try {
+      const remoteRoot = (
+        process.env.HETZNER_CONTRACTS_DIR ?? '/contentflow/contracts'
+      ).replace(/\/+$/, '');
+      const remotePath = `${remoteRoot}/${storageKey}`;
+      await this.hetzner.upload(remotePath, data);
+      this.logger.log(`Contract file mirrored to Hetzner: ${storageKey}`);
+    } catch (e) {
+      this.logger.warn(
+        `Hetzner mirror failed for ${storageKey}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+    }
+  }
+
   /// Пытается восстановить файл версии контракта из Hetzner Storage Box
   /// (если там лежит зеркало). Возвращает `true`, если файл успешно записан
   /// на локальный диск. Hetzner кладём в `/contentflow/contracts/<storageKey>`
@@ -415,12 +444,21 @@ export class ContractsService {
       const contractAbs = path.join(contractsUploadRoot(), v1StorageKey);
       await mkdir(path.dirname(contractAbs), { recursive: true });
       await writeFile(contractAbs, generatedContractPdf);
+      // Зеркалим в Hetzner Storage Box (best-effort): локальный диск Render
+      // не реплицируется, и его потеря = потеря всех договоров. См.
+      // ContractsService.getVersionFileForDownload — fallback при отсутствии
+      // файла локально пытается стянуть его именно отсюда.
+      await this.mirrorContractFileToHetzner(v1StorageKey, generatedContractPdf);
     }
     if (generatedAppendixPdf) {
       appendixStorageKey = `contracts/${contract.id}/appendix-v1.pdf`;
       const appendixAbs = path.join(contractsUploadRoot(), appendixStorageKey);
       await mkdir(path.dirname(appendixAbs), { recursive: true });
       await writeFile(appendixAbs, generatedAppendixPdf);
+      await this.mirrorContractFileToHetzner(
+        appendixStorageKey,
+        generatedAppendixPdf,
+      );
       await this.prisma.contract.update({
         where: { id: contract.id },
         data: {

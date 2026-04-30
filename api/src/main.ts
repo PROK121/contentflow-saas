@@ -67,6 +67,19 @@ function assertEnv() {
         `Установите адрес отправителя, подписанный SPF/DKIM (например "Growix Content <noreply@growixcontent.com>").`,
     );
   }
+
+  // Hetzner Storage Box используется для зеркалирования контрактов (см.
+  // ContractsService.mirrorContractFileToHetzner / tryRestoreFromHetzner).
+  // Без пароля fallback не работает — в проде пишем громкий warning, чтобы
+  // никто не уехал на прод с локальным диском как единственной копией.
+  if (isProd && !process.env.HETZNER_STORAGE_PASSWORD) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[startup] HETZNER_STORAGE_PASSWORD не задан в production. ` +
+        `Зеркалирование контрактов в Hetzner отключено — потеря Render persistent disk = потеря всех договоров. ` +
+        `Установите пароль в Render Environment, см. api/src/hetzner-storage/hetzner-storage.service.ts.`,
+    );
+  }
 }
 
 async function bootstrap() {

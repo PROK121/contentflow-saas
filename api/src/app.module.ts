@@ -6,6 +6,7 @@ import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
+import { CronModule } from './cron/cron.module';
 import { FxModule } from './fx/fx.module';
 import { TaxModule } from './tax/tax.module';
 import { CatalogModule } from './catalog/catalog.module';
@@ -59,6 +60,7 @@ import { UsersModule } from './users/users.module';
     EmailModule,
     AuthModule,
     PrismaModule,
+    CronModule,
     OrganizationsModule,
     UsersModule,
     DealsModule,

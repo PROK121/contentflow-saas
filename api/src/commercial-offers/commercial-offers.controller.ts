@@ -16,6 +16,7 @@ import {
 import type { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
+import { CrmAuditService } from '../audit/crm-audit.service';
 import { assertAdminDeleteUser } from '../auth/admin-delete';
 import type { AuthUserView } from '../auth/auth-user.types';
 import { Roles } from '../auth/roles.decorator';
@@ -38,6 +39,7 @@ function manualOfferUploadOptions() {
 export class CommercialOffersController {
   constructor(
     private readonly commercialOffersService: CommercialOffersService,
+    private readonly audit: CrmAuditService,
   ) {}
 
   @Get()
@@ -56,28 +58,69 @@ export class CommercialOffersController {
   }
 
   @Post()
-  create(@Body() body: CreateCommercialOfferDto) {
-    return this.commercialOffersService.create(body);
+  async create(@Body() body: CreateCommercialOfferDto, @Req() req: Request) {
+    const result = await this.commercialOffersService.create(body);
+    void this.audit.log({
+      user: req.user as AuthUserView | undefined,
+      action: 'offer.create',
+      entityType: 'CommercialOffer',
+      entityId: (result as { id?: string })?.id,
+      ...CrmAuditService.fromRequest(req),
+    });
+    return result;
   }
 
   @Post('manual')
   @UseInterceptors(FileInterceptor('file', manualOfferUploadOptions()))
-  createManual(
+  async createManual(
     @Body() body: CreateManualCommercialOfferDto,
     @UploadedFile() file: Express.Multer.File | undefined,
+    @Req() req: Request,
   ) {
-    return this.commercialOffersService.createManual(body, file);
+    const result = await this.commercialOffersService.createManual(body, file);
+    void this.audit.log({
+      user: req.user as AuthUserView | undefined,
+      action: 'offer.create_manual',
+      entityType: 'CommercialOffer',
+      entityId: (result as { id?: string })?.id,
+      ...CrmAuditService.fromRequest(req),
+    });
+    return result;
   }
 
   @Patch(':id')
-  patch(@Param('id') id: string, @Body() body: PatchCommercialOfferDto) {
-    return this.commercialOffersService.setArchived(id, body.archived);
+  async patch(
+    @Param('id') id: string,
+    @Body() body: PatchCommercialOfferDto,
+    @Req() req: Request,
+  ) {
+    const result = await this.commercialOffersService.setArchived(
+      id,
+      body.archived,
+    );
+    void this.audit.log({
+      user: req.user as AuthUserView | undefined,
+      action: 'offer.archive',
+      entityType: 'CommercialOffer',
+      entityId: id,
+      metadata: { archived: body.archived },
+      ...CrmAuditService.fromRequest(req),
+    });
+    return result;
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string, @Req() req: Request) {
+  async remove(@Param('id') id: string, @Req() req: Request) {
     assertAdminDeleteUser(req.user as AuthUserView);
-    return this.commercialOffersService.remove(id);
+    const result = await this.commercialOffersService.remove(id);
+    void this.audit.log({
+      user: req.user as AuthUserView | undefined,
+      action: 'offer.delete',
+      entityType: 'CommercialOffer',
+      entityId: id,
+      ...CrmAuditService.fromRequest(req),
+    });
+    return result;
   }
 
   @Get(':id/document')

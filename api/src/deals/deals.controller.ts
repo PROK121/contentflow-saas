@@ -17,6 +17,7 @@ import { existsSync, unlinkSync } from 'fs';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { randomUUID } from 'crypto';
 import type { Request } from 'express';
+import { CrmAuditService } from '../audit/crm-audit.service';
 import { assertAdminDeleteUser } from '../auth/admin-delete';
 import type { AuthUserView } from '../auth/auth-user.types';
 import { Roles } from '../auth/roles.decorator';
@@ -84,7 +85,10 @@ function dealDocumentUploadOptions() {
 @Roles('admin', 'manager')
 @Controller('deals')
 export class DealsController {
-  constructor(private readonly dealsService: DealsService) {}
+  constructor(
+    private readonly dealsService: DealsService,
+    private readonly audit: CrmAuditService,
+  ) {}
 
   @Post('sold-hints')
   soldHints(@Body() body: SoldHintsDto) {
@@ -124,13 +128,32 @@ export class DealsController {
   }
 
   @Post()
-  create(@Body() body: CreateDealDto) {
-    return this.dealsService.create(body);
+  async create(@Body() body: CreateDealDto, @Req() req: Request) {
+    const result = await this.dealsService.create(body);
+    void this.audit.log({
+      user: req.user as AuthUserView | undefined,
+      action: 'deal.create',
+      entityType: 'Deal',
+      entityId: (result as { id?: string })?.id,
+      organizationId: body.buyerOrgId,
+      metadata: { kind: body.kind, currency: body.currency },
+      ...CrmAuditService.fromRequest(req),
+    });
+    return result;
   }
 
   @Post(':id/duplicate')
-  duplicate(@Param('id') id: string) {
-    return this.dealsService.duplicate(id);
+  async duplicate(@Param('id') id: string, @Req() req: Request) {
+    const result = await this.dealsService.duplicate(id);
+    void this.audit.log({
+      user: req.user as AuthUserView | undefined,
+      action: 'deal.duplicate',
+      entityType: 'Deal',
+      entityId: (result as { id?: string })?.id,
+      metadata: { sourceId: id },
+      ...CrmAuditService.fromRequest(req),
+    });
+    return result;
   }
 
   @Get(':id/payment-preview')
@@ -203,14 +226,42 @@ export class DealsController {
   }
 
   @Patch(':id')
-  async patch(@Param('id') id: string, @Body() body: UpdateDealDto) {
-    return this.dealsService.update(id, body);
+  async patch(
+    @Param('id') id: string,
+    @Body() body: UpdateDealDto,
+    @Req() req: Request,
+  ) {
+    const result = await this.dealsService.update(id, body);
+    // Какие именно поля поменяли — пишем для возможности recovery/timeline.
+    const changedFields = Object.keys(body).filter(
+      (k) => (body as Record<string, unknown>)[k] !== undefined,
+    );
+    void this.audit.log({
+      user: req.user as AuthUserView | undefined,
+      action:
+        body.archived !== undefined && Object.keys(body).length === 1
+          ? 'deal.archive'
+          : 'deal.patch',
+      entityType: 'Deal',
+      entityId: id,
+      metadata: { fields: changedFields, archived: body.archived },
+      ...CrmAuditService.fromRequest(req),
+    });
+    return result;
   }
 
   @Delete(':id')
   async remove(@Param('id') id: string, @Req() req: Request) {
     assertAdminDeleteUser(req.user as AuthUserView);
-    return this.dealsService.removeDeal(id);
+    const result = await this.dealsService.removeDeal(id);
+    void this.audit.log({
+      user: req.user as AuthUserView | undefined,
+      action: 'deal.delete',
+      entityType: 'Deal',
+      entityId: id,
+      ...CrmAuditService.fromRequest(req),
+    });
+    return result;
   }
 
   @Post(':id/activities/file')

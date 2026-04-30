@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { TaskPriority, TaskStatus, TaskType } from '@prisma/client';
+import { CrmAuditService } from '../audit/crm-audit.service';
 import { assertAdminDeleteUser } from '../auth/admin-delete';
 import type { AuthUserView } from '../auth/auth-user.types';
 import { Roles } from '../auth/roles.decorator';
@@ -22,7 +23,10 @@ import { TasksService } from './tasks.service';
 @Roles('admin', 'manager')
 @Controller('tasks')
 export class TasksController {
-  constructor(private readonly tasksService: TasksService) {}
+  constructor(
+    private readonly tasksService: TasksService,
+    private readonly audit: CrmAuditService,
+  ) {}
 
   @Get()
   list(
@@ -97,8 +101,16 @@ export class TasksController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string, @Req() req: Request) {
+  async remove(@Param('id') id: string, @Req() req: Request) {
     assertAdminDeleteUser(req.user as AuthUserView);
-    return this.tasksService.remove(id);
+    const result = await this.tasksService.remove(id);
+    void this.audit.log({
+      user: req.user as AuthUserView | undefined,
+      action: 'catalog.delete',
+      entityType: 'Task',
+      entityId: id,
+      ...CrmAuditService.fromRequest(req),
+    });
+    return result;
   }
 }

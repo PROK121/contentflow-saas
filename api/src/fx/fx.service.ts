@@ -142,24 +142,209 @@ export class FxService {
     }
   }
 
-  /// ЦБ РФ публикует XML на https://www.cbr.ru/scripts/XML_daily.asp
-  /// Реализация — задача отдельного PR (нужны DOMParser + cron на 11:30 МСК
-  /// для актуального курса). Сейчас заглушка.
+  /// ЦБ РФ публикует XML с курсами всех валют на дату:
+  /// https://www.cbr.ru/scripts/XML_daily.asp?date_req=DD/MM/YYYY
+  /// (без параметра — текущая дата). Кодировка windows-1251.
+  ///
+  /// Поддерживаются пары: X→RUB напрямую (X — любая валюта, перечисленная в
+  /// XML, например USD/EUR/CNY/KZT), и RUB→X через инверсию. Кросс-курсы
+  /// (USD→KZT, EUR→KZT и т.п.) считаются как X→RUB / Y→RUB. Это удобно для
+  /// российских клиентов: основная пара RUB всегда доступна.
   private async fetchCbr(base: string, quote: string): Promise<Decimal> {
-    throw new Error(
-      `Адаптер CBR не реализован для ${base}/${quote}. Заполните FxRateCache вручную или подключите парсер cbr.ru/scripts/XML_daily.asp.`,
-    );
+    const xml = await fetchCbrDailyXml();
+    const rates = parseCbrXml(xml);
+    return computeCrossRate(rates, base, quote, 'RUB');
   }
 
+  /// НБК публикует XML на https://nationalbank.kz/rss/get_rates.cfm?fdate=DD.MM.YYYY
+  /// Базовая валюта котировок — KZT, аналогично CBR строим X→KZT / Y→KZT.
   private async fetchNbk(base: string, quote: string): Promise<Decimal> {
-    throw new Error(
-      `Адаптер NBK не реализован для ${base}/${quote}. Источник: nationalbank.kz (XML).`,
-    );
+    const xml = await fetchNbkDailyXml();
+    const rates = parseNbkXml(xml);
+    return computeCrossRate(rates, base, quote, 'KZT');
   }
 
+  /// ECB публикует XML на https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml
+  /// Базовая валюта — EUR.
   private async fetchEcb(base: string, quote: string): Promise<Decimal> {
-    throw new Error(
-      `Адаптер ECB не реализован для ${base}/${quote}. Источник: ecb.europa.eu/stats/eurofxref.`,
-    );
+    const xml = await fetchEcbDailyXml();
+    const rates = parseEcbXml(xml);
+    return computeCrossRate(rates, base, quote, 'EUR');
   }
 }
+
+// ===========================================================================
+// HTTP + парсинг XML — отдельные функции, чтобы их можно было замокать в тестах
+// ===========================================================================
+
+/// Скачивает XML по URL c таймаутом 10 сек. Возвращает строку (text).
+/// Кодировку проставляет вызывающий парсер — у CBR это windows-1251,
+/// у ECB/NBK — utf-8.
+async function fetchUrlAsBuffer(url: string): Promise<Buffer> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'ContentFlow/1.0 (+fx)' },
+    });
+    if (!res.ok) {
+      throw new Error(`FX HTTP ${res.status} ${res.statusText} for ${url}`);
+    }
+    const arr = new Uint8Array(await res.arrayBuffer());
+    return Buffer.from(arr);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchCbrDailyXml(): Promise<string> {
+  // У CBR XML в кодировке windows-1251. В Node 18+ TextDecoder это умеет.
+  const buf = await fetchUrlAsBuffer(
+    'https://www.cbr.ru/scripts/XML_daily.asp',
+  );
+  try {
+    return new TextDecoder('windows-1251').decode(buf);
+  } catch {
+    // Если ICU не подгружен (минимальный node-image), fallback в utf-8 —
+    // числа всё равно ASCII, кириллица в Name мы не используем.
+    return buf.toString('utf8');
+  }
+}
+
+async function fetchNbkDailyXml(): Promise<string> {
+  const buf = await fetchUrlAsBuffer(
+    'https://nationalbank.kz/rss/get_rates.cfm',
+  );
+  return buf.toString('utf8');
+}
+
+async function fetchEcbDailyXml(): Promise<string> {
+  const buf = await fetchUrlAsBuffer(
+    'https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml',
+  );
+  return buf.toString('utf8');
+}
+
+/// Минималистичные XML-парсеры на регулярках. Это устойчивее, чем тянуть
+/// `xml2js`/`fast-xml-parser` ради трёх стабильных форматов с предсказуемой
+/// разметкой. Если завтра ЦБ поменяет формат — поправим тут локально.
+
+interface RateRow {
+  /// ISO-код валюты («USD», «EUR», ...).
+  code: string;
+  /// Сколько единиц валюты в одной строке (Nominal у CBR/NBK, у ECB всегда 1).
+  nominal: number;
+  /// Курс одной строки в базовой валюте (RUB у CBR, KZT у NBK, EUR у ECB).
+  value: Decimal;
+}
+
+/// Парсит CBR XML формата
+/// `<Valute><CharCode>USD</CharCode><Nominal>1</Nominal><Value>92,5000</Value></Valute>`.
+/// Десятичная запятая — заменяем на точку для Decimal.
+function parseCbrXml(xml: string): RateRow[] {
+  const rows: RateRow[] = [];
+  const re = /<Valute[^>]*>[\s\S]*?<\/Valute>/g;
+  for (const match of xml.match(re) ?? []) {
+    const code = /<CharCode>([^<]+)<\/CharCode>/.exec(match)?.[1]?.trim();
+    const nominalRaw = /<Nominal>([^<]+)<\/Nominal>/.exec(match)?.[1]?.trim();
+    const valueRaw = /<Value>([^<]+)<\/Value>/.exec(match)?.[1]?.trim();
+    if (!code || !nominalRaw || !valueRaw) continue;
+    const nominal = Number.parseInt(nominalRaw, 10);
+    if (!Number.isFinite(nominal) || nominal <= 0) continue;
+    try {
+      const value = new Decimal(valueRaw.replace(',', '.'));
+      rows.push({ code: code.toUpperCase(), nominal, value });
+    } catch {
+      // мусор — пропускаем
+    }
+  }
+  return rows;
+}
+
+/// Парсит NBK XML формата
+/// `<item><title>USD</title><description>92.50</description><quant>1</quant></item>`.
+function parseNbkXml(xml: string): RateRow[] {
+  const rows: RateRow[] = [];
+  const re = /<item[^>]*>[\s\S]*?<\/item>/g;
+  for (const match of xml.match(re) ?? []) {
+    const title = /<title>([^<]+)<\/title>/.exec(match)?.[1]?.trim();
+    const descr = /<description>([^<]+)<\/description>/.exec(match)?.[1]?.trim();
+    const quantRaw = /<quant>([^<]+)<\/quant>/.exec(match)?.[1]?.trim();
+    if (!title || !descr) continue;
+    const code = title.toUpperCase().slice(0, 3);
+    const nominal = quantRaw ? Number.parseInt(quantRaw, 10) : 1;
+    try {
+      const value = new Decimal(descr.replace(',', '.'));
+      rows.push({
+        code,
+        nominal: Number.isFinite(nominal) && nominal > 0 ? nominal : 1,
+        value,
+      });
+    } catch {
+      // ignore
+    }
+  }
+  return rows;
+}
+
+/// Парсит ECB XML формата
+/// `<Cube currency="USD" rate="1.0850"/>`. У ECB nominal всегда 1.
+function parseEcbXml(xml: string): RateRow[] {
+  const rows: RateRow[] = [];
+  const re = /<Cube\s+currency="([^"]+)"\s+rate="([^"]+)"\s*\/>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(xml)) != null) {
+    const code = m[1].toUpperCase();
+    try {
+      const value = new Decimal(m[2]);
+      rows.push({ code, nominal: 1, value });
+    } catch {
+      // ignore
+    }
+  }
+  return rows;
+}
+
+/// Считает кросс-курс base→quote через базовую валюту источника
+/// (`source` = RUB для CBR, KZT для NBK, EUR для ECB).
+///
+/// Если base = source, нам нужен 1 source = X quote → используем 1/(X→source).
+/// Если quote = source, нам нужен 1 base = X source → прямое значение.
+/// Иначе — кросс-курс: (base→source) / (quote→source).
+function computeCrossRate(
+  rates: RateRow[],
+  base: string,
+  quote: string,
+  source: string,
+): Decimal {
+  const findRate = (currency: string): Decimal | null => {
+    if (currency === source) return new Decimal(1);
+    const row = rates.find((r) => r.code === currency);
+    if (!row) return null;
+    // value у CBR — «X RUB за nominal валюты». Нормализуем к 1 единице.
+    return row.value.div(row.nominal);
+  };
+  const baseToSource = findRate(base);
+  const quoteToSource = findRate(quote);
+  if (!baseToSource) {
+    throw new Error(
+      `Источник курсов не содержит ${base} (источник базы: ${source}).`,
+    );
+  }
+  if (!quoteToSource) {
+    throw new Error(
+      `Источник курсов не содержит ${quote} (источник базы: ${source}).`,
+    );
+  }
+  // base→quote = (base→source) / (quote→source)
+  return baseToSource.div(quoteToSource);
+}
+
+// Экспорт для unit-тестов.
+export const __testables = {
+  parseCbrXml,
+  parseNbkXml,
+  parseEcbXml,
+  computeCrossRate,
+};

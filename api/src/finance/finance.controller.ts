@@ -1,5 +1,8 @@
-import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Query, Req } from '@nestjs/common';
 import { DealKind, PaymentDirection, PaymentStatus } from '@prisma/client';
+import type { Request } from 'express';
+import { CrmAuditService } from '../audit/crm-audit.service';
+import type { AuthUserView } from '../auth/auth-user.types';
 import { Roles } from '../auth/roles.decorator';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
 import { FinanceService } from './finance.service';
@@ -7,7 +10,10 @@ import { FinanceService } from './finance.service';
 @Roles('admin', 'manager')
 @Controller('finance')
 export class FinanceController {
-  constructor(private readonly financeService: FinanceService) {}
+  constructor(
+    private readonly financeService: FinanceService,
+    private readonly audit: CrmAuditService,
+  ) {}
 
   @Get('payments/stats')
   paymentStats() {
@@ -49,8 +55,25 @@ export class FinanceController {
   }
 
   @Patch('payments/:id')
-  updatePayment(@Param('id') id: string, @Body() dto: UpdatePaymentDto) {
-    return this.financeService.updatePayment(id, dto);
+  async updatePayment(
+    @Param('id') id: string,
+    @Body() dto: UpdatePaymentDto,
+    @Req() req: Request,
+  ) {
+    const result = await this.financeService.updatePayment(id, dto);
+    void this.audit.log({
+      user: req.user as AuthUserView | undefined,
+      action: 'payment.update',
+      entityType: 'Payment',
+      entityId: id,
+      metadata: {
+        status: dto.status,
+        paidAt: dto.paidAt,
+        paidAtClear: dto.paidAtClear,
+      },
+      ...CrmAuditService.fromRequest(req),
+    });
+    return result;
   }
 
   @Get('payouts')
