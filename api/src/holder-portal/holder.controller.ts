@@ -27,7 +27,6 @@ import {
   IsString,
   MaxLength,
 } from 'class-validator';
-import { createReadStream, existsSync } from 'fs';
 import type { Request } from 'express';
 import type { AuthUserView } from '../auth/auth-user.types';
 import { ContractsService } from '../contracts/contracts.service';
@@ -770,19 +769,16 @@ export class HolderController {
     @Query('inline') inline?: string,
   ) {
     const user = authUser(req);
-    const meta = await this.materials.getUploadFileMeta(id, uploadId);
+    const meta = await this.materials.getUploadFileForDownload(id, uploadId);
     if (meta.organizationId !== user.organizationId) {
       throw new NotFoundException('Загрузка не найдена');
-    }
-    if (!existsSync(meta.absPath)) {
-      throw new NotFoundException('Файл недоступен');
     }
     const ascii =
       meta.originalName.replace(/[^\x20-\x7E]+/g, '_').replace(/"/g, '') ||
       'file';
     const utf8 = encodeURIComponent(meta.originalName);
     const asInline = inline === '1' || inline === 'true' || inline === 'yes';
-    return new StreamableFile(createReadStream(meta.absPath), {
+    return new StreamableFile(meta.stream, {
       type: meta.mimeType,
       disposition: asInline
         ? `inline; filename="${ascii}"; filename*=UTF-8''${utf8}`

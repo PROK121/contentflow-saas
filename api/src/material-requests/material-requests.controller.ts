@@ -15,7 +15,6 @@ import {
   StreamableFile,
 } from '@nestjs/common';
 import { MaterialRequestStatus } from '@prisma/client';
-import { createReadStream, existsSync } from 'fs';
 import type { Request } from 'express';
 import { assertManagerOrAdmin } from '../auth/rbac';
 import {
@@ -108,16 +107,13 @@ export class MaterialRequestsController {
   ) {
     if (!req) throw new BadRequestException('Auth required');
     assertManagerOrAdmin(req);
-    const meta = await this.service.getUploadFileMeta(id, uploadId);
-    if (!existsSync(meta.absPath)) {
-      throw new NotFoundException('Файл недоступен');
-    }
+    const meta = await this.service.getUploadFileForDownload(id, uploadId);
     const ascii =
       meta.originalName.replace(/[^\x20-\x7E]+/g, '_').replace(/"/g, '') ||
       'file';
     const utf8 = encodeURIComponent(meta.originalName);
     const asInline = inline === '1' || inline === 'true' || inline === 'yes';
-    return new StreamableFile(createReadStream(meta.absPath), {
+    return new StreamableFile(meta.stream, {
       type: meta.mimeType,
       disposition: asInline
         ? `inline; filename="${ascii}"; filename*=UTF-8''${utf8}`

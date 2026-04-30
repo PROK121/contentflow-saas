@@ -9,6 +9,10 @@ export function materialsUploadRoot(): string {
   return path.join(root, 'materials');
 }
 
+export function materialsRemoteRoot(): string {
+  return process.env.HETZNER_MATERIALS_DIR ?? '/contentflow/materials';
+}
+
 /// Multer storage для материалов. Файл кладётся в
 /// `${UPLOAD_DIR}/materials/{requestId}/{uuid}{ext}`.
 /// Имя берётся из URL-параметра `:id` (request id).
@@ -30,6 +34,11 @@ export function materialDiskStorage() {
 /// Полный путь к файлу для скачивания / удаления.
 export function materialAbsolutePath(requestId: string, storedFileName: string): string {
   return path.join(materialsUploadRoot(), requestId, storedFileName);
+}
+
+export function materialRemotePath(requestId: string, storedFileName: string): string {
+  const root = materialsRemoteRoot().replace(/\/+$/, '');
+  return `${root}/${requestId}/${storedFileName}`;
 }
 
 /// Безопасно удалить файл (без выброса, если файла нет).

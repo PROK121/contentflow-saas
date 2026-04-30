@@ -5,6 +5,8 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { createReadStream, existsSync } from 'fs';
+import type { Readable } from 'stream';
 import {
   MaterialRequestStatus,
   MaterialReviewStatus,
@@ -13,6 +15,7 @@ import {
 } from '@prisma/client';
 import type { AuthUserView } from '../auth/auth-user.types';
 import { EmailService } from '../email/email.service';
+import { HetznerStorageService } from '../hetzner-storage/hetzner-storage.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateMaterialRequestDto,
@@ -27,6 +30,7 @@ import {
 } from './material-slots';
 import {
   materialAbsolutePath,
+  materialRemotePath,
   safeUnlinkMaterial,
 } from './material-storage';
 
@@ -68,6 +72,7 @@ export class MaterialRequestsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly email: EmailService,
+    private readonly hetzner: HetznerStorageService,
   ) {}
 
   // ==========================================================================
@@ -293,6 +298,22 @@ export class MaterialRequestsService {
         `Слот ${slot} не запрашивался в этом запросе`,
       );
     }
+    const localPath = materialAbsolutePath(requestId, file.filename);
+    const remotePath = materialRemotePath(requestId, file.filename);
+    try {
+      await this.hetzner.upload(remotePath, createReadStream(localPath));
+    } catch (e) {
+      this.logger.error(
+        `material upload to storage box failed: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+      throw new BadRequestException(
+        'Не удалось сохранить файл в Storage Box. Повторите загрузку.',
+      );
+    } finally {
+      await safeUnlinkMaterial(localPath);
+    }
     const upload = await this.prisma.materialUpload.create({
       data: {
         requestId,
@@ -330,9 +351,10 @@ export class MaterialRequestsService {
       );
     }
     await this.prisma.materialUpload.delete({ where: { id: uploadId } });
-    await safeUnlinkMaterial(
-      materialAbsolutePath(requestId, upload.storedFileName),
-    );
+    await safeUnlinkMaterial(materialAbsolutePath(requestId, upload.storedFileName));
+    await this.hetzner
+      .delete(materialRemotePath(requestId, upload.storedFileName))
+      .catch(() => null);
     await this.recomputeStatus(requestId);
     return { ok: true };
   }
@@ -350,9 +372,38 @@ export class MaterialRequestsService {
     }
     return {
       absPath: materialAbsolutePath(requestId, upload.storedFileName),
+      remotePath: materialRemotePath(requestId, upload.storedFileName),
       originalName: upload.originalName,
       mimeType: upload.mimeType ?? 'application/octet-stream',
       organizationId: upload.request.organizationId,
+    };
+  }
+
+  async getUploadFileForDownload(requestId: string, uploadId: string): Promise<{
+    stream: Readable;
+    originalName: string;
+    mimeType: string;
+    organizationId: string;
+  }> {
+    const meta = await this.getUploadFileMeta(requestId, uploadId);
+    const remoteExists = await this.hetzner.exists(meta.remotePath).catch(() => false);
+    if (remoteExists) {
+      const stream = await this.hetzner.downloadStream(meta.remotePath);
+      return {
+        stream,
+        originalName: meta.originalName,
+        mimeType: meta.mimeType,
+        organizationId: meta.organizationId,
+      };
+    }
+    if (!existsSync(meta.absPath)) {
+      throw new NotFoundException('Файл недоступен');
+    }
+    return {
+      stream: createReadStream(meta.absPath),
+      originalName: meta.originalName,
+      mimeType: meta.mimeType,
+      organizationId: meta.organizationId,
     };
   }
 
