@@ -17,6 +17,7 @@ import {
   BadgePercent,
   BookMarked,
   DollarSign,
+  CalendarDays,
   Users,
   LogOut,
   ChevronLeft,
@@ -58,7 +59,10 @@ const navGroups: NavGroup[] = [
   },
   {
     label: "Финансы",
-    items: [{ path: "/payments", label: "Платежи", icon: DollarSign }],
+    items: [
+      { path: "/payments", label: "Платежи", icon: DollarSign },
+      { path: "/cashflow", label: "Кэш-флоу", icon: CalendarDays },
+    ],
   },
   {
     label: "Партнёры",
