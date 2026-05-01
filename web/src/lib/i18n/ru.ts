@@ -67,6 +67,7 @@ export const ru = {
     itemGrades: "Грейды",
     itemRightsBase: "База прав",
     itemPayments: "Платежи",
+    itemCashflow: "Кэш-флоу",
     itemCounterparties: "Контрагенты",
   },
   crm: {

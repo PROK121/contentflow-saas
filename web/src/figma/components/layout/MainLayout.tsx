@@ -13,6 +13,7 @@ import {
   FileText,
   FileStack,
   DollarSign,
+  CalendarDays,
   BarChart3,
   BadgePercent,
   CheckSquare,
@@ -55,7 +56,10 @@ function getNavGroups(): NavGroup[] {
     },
     {
       label: tr("appNav", "groupFinance"),
-      items: [{ path: "/payments", label: tr("appNav", "itemPayments"), icon: DollarSign }],
+      items: [
+        { path: "/payments", label: tr("appNav", "itemPayments"), icon: DollarSign },
+        { path: "/cashflow", label: tr("appNav", "itemCashflow"), icon: CalendarDays },
+      ],
     },
     {
       label: tr("appNav", "groupPartners"),
